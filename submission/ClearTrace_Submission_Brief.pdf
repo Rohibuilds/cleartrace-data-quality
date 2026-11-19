@@ -7,7 +7,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
 endobj
 3 0 obj
-<< /Length 5827 >>
+<< /Length 5809 >>
 stream
 q 1.000 1.000 1.000 rg
 0 0 595 842 re f
@@ -85,9 +85,9 @@ q 0.990 0.975 0.920 rg
 55 183 m 540 183 l 543.8661 183 547 186.1339 547 190 c 547 251 l 547 254.8661 543.8661 258 540 258 c 55 258 l 51.1339 258 48 254.8661 48 251 c 48 190 l 48 186.1339 51.1339 183 55 183 c B
 Q
 BT /F2 8 Tf 0.510 0.390 0.120 rg 1 0 0 1 61 236 Tm (DEMO SCOPE) Tj ET
-BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 219 Tm (The hosted demo currently uses one shared access token, not individual user accounts.) Tj ET
-BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 205 Tm (Email/SMS alerts depend on provider setup. Use synthetic data; do not upload confidential) Tj ET
-BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 191 Tm (datasets to the public demo. Offline mode caches only the app shell.) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 219 Tm (Judges can explore and repair synthetic data without signing in.) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 205 Tm (The temporary judge workspace blocks uploads; personal accounts use email codes.) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 191 Tm (Email-code delivery needs Gmail SMTP setup. Do not upload confidential datasets.) Tj ET
 q 0.84 0.88 0.91 RG 0.7 w 48 48 m 547 48 l S Q
 BT /F2 7 Tf 0.450 0.520 0.600 rg 1 0 0 1 48 31 Tm (CLEARTRACE  /  DATA QUALITY MADE REVIEWABLE) Tj ET
 BT /F2 7 Tf 0.450 0.520 0.600 rg 1 0 0 1 445 31 Tm (SUBMISSION BRIEF) Tj ET
@@ -111,12 +111,12 @@ xref
 0000000015 00000 n 
 0000000085 00000 n 
 0000000160 00000 n 
-0000006039 00000 n 
-0000006202 00000 n 
-0000006354 00000 n 
-0000006411 00000 n 
+0000006021 00000 n 
+0000006184 00000 n 
+0000006336 00000 n 
+0000006393 00000 n 
 trailer
 << /Size 8 /Root 7 0 R >>
 startxref
-6460
+6442
 %%EOF

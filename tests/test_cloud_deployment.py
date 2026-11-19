@@ -3,7 +3,7 @@
 Verifies:
 1. Lightweight container healthcheck probe (/health).
 2. Rate limiting protection on /api/ endpoints.
-3. Access token authorization and demo mode toggle.
+3. Email one-time-code authorization and temporary judge workspace.
 4. Upload file extension validation.
 5. Railway, Render, and Cloudflare CORS/trusted origin handling.
 6. Persistent volume path resolution and restart simulation.
@@ -19,6 +19,13 @@ from fastapi.testclient import TestClient
 from server import app, is_trusted_origin, _RATE_LIMIT_STORE
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def local_open_mode(monkeypatch, tmp_path):
+    """Keep unrelated endpoint tests isolated from the production OTP gate."""
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "false")
+    monkeypatch.setenv("CLEARTRACE_DATA_DIR", str(tmp_path / "data"))
 
 
 def test_lightweight_health_probe():
@@ -38,40 +45,43 @@ def test_lightweight_health_probe():
 
 
 def test_auth_status_demo_mode_default():
-    """Verify default demo mode allows exploration without requiring token."""
+    """Explicit local open mode remains available for development."""
     res = client.get("/api/auth/status")
     assert res.status_code == 200
     data = res.json()
-    assert data["demo_mode"] is True
     assert data["auth_required"] is False
     assert data["is_authenticated"] is True
 
 
-def test_auth_with_access_token(monkeypatch):
-    """Verify access control when CLEARTRACE_ACCESS_TOKEN is configured."""
-    monkeypatch.setenv("CLEARTRACE_ACCESS_TOKEN", "super-secret-judge-key-999")
-    monkeypatch.setenv("CLEARTRACE_DEMO_MODE", "false")
+def test_auth_with_email_one_time_code(monkeypatch):
+    """Verify one-time email codes establish an isolated authenticated workspace."""
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    client.cookies.clear()
+    sent = {}
+    monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
 
-    # Unauthenticated status
     res = client.get("/api/auth/status")
     assert res.status_code == 200
     assert res.json()["is_authenticated"] is False
     assert res.json()["auth_required"] is True
 
-    # Login with invalid token
-    login_fail = client.post("/api/auth/login", json={"token": "wrong-password"})
-    assert login_fail.status_code == 401
+    protected = client.get("/api/quality/score")
+    assert protected.status_code == 401
 
-    # Login with valid token
-    login_ok = client.post("/api/auth/login", json={"token": "super-secret-judge-key-999"})
+    sent_response = client.post("/api/auth/request-code", json={"email": "judge@example.com"})
+    assert sent_response.status_code == 200
+    assert sent["email"] == "judge@example.com"
+    login_ok = client.post("/api/auth/verify", json={"email": sent["email"], "code": sent["code"]})
     assert login_ok.status_code == 200
     assert login_ok.json()["success"] is True
 
-    # Authenticated via Bearer header
-    auth_headers = {"Authorization": "Bearer super-secret-judge-key-999"}
-    res_auth = client.get("/api/auth/status", headers=auth_headers)
+    res_auth = client.get("/api/auth/status")
     assert res_auth.status_code == 200
     assert res_auth.json()["is_authenticated"] is True
+    assert res_auth.json()["email"] == "judge@example.com"
+    assert client.get("/api/quality/score").status_code == 200
 
 
 def test_upload_extension_validation():
@@ -112,27 +122,26 @@ def test_tsv_upload_supported():
     assert res.json()["filename"] == "sample.tsv"
 
 
-def test_query_param_token_rejection(monkeypatch):
-    """Verify query parameter tokens are rejected (OWASP ASVS / CWE-598)."""
-    monkeypatch.setenv("CLEARTRACE_ACCESS_TOKEN", "super-secret-judge-key-999")
-    monkeypatch.setenv("CLEARTRACE_DEMO_MODE", "false")
+def test_query_string_cannot_authenticate(monkeypatch):
+    """A URL query parameter never authenticates a browser session."""
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    client.cookies.clear()
 
     # Attempt to supply token via URL query string (?token=...)
-    res = client.get("/api/auth/status?token=super-secret-judge-key-999")
+    res = client.get("/api/auth/status?email=judge@example.com&code=123456")
     assert res.status_code == 200
-    # Must NOT authenticate via query param!
     assert res.json()["is_authenticated"] is False
 
 
-def test_enterprise_mode_blocks_unauthorized_api_endpoints(monkeypatch):
-    """Verify CLEARTRACE_DEMO_MODE=false locks down all API routes except health and login."""
-    monkeypatch.setenv("CLEARTRACE_ACCESS_TOKEN", "strong-enterprise-secret-token-12345")
-    monkeypatch.setenv("CLEARTRACE_DEMO_MODE", "false")
+def test_otp_mode_blocks_unauthorized_api_endpoints(monkeypatch):
+    """OTP mode gates API routes while leaving the no-sign-in sample path available."""
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    client.cookies.clear()
 
     # Unauthenticated API calls must be blocked with 401
     res_score = client.get("/api/quality/score")
     assert res_score.status_code == 401
-    assert "authentication required" in res_score.json()["detail"].lower()
+    assert "sign in" in res_score.json()["detail"].lower()
 
     res_findings = client.get("/api/quality/findings")
     assert res_findings.status_code == 401
@@ -141,10 +150,14 @@ def test_enterprise_mode_blocks_unauthorized_api_endpoints(monkeypatch):
     res_health = client.get("/health")
     assert res_health.status_code == 200
 
-    # Authorized call succeeds
-    headers = {"Authorization": "Bearer strong-enterprise-secret-token-12345"}
-    res_auth = client.get("/api/quality/score", headers=headers)
-    assert res_auth.status_code == 200
+    # A no-sign-in sample workspace can read synthetic quality data.
+    demo = client.post("/api/auth/public-demo", json={})
+    assert demo.status_code == 200
+    assert client.get("/api/quality/score").status_code == 200
+    assert client.post(
+        "/api/dataset/upload",
+        files={"file": ("private.csv", io.BytesIO(b"id\n1\n"), "text/csv")},
+    ).status_code == 403
 
 
 def test_rate_limiting_enforcement():

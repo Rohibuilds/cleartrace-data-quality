@@ -32,7 +32,7 @@ The product is designed to keep data repair visible and deliberate: findings are
 
 ## Try the deployed demo
 
-Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). The demo requires a shared access token supplied separately by the project owner. Do not put that token in a URL, commit it, or include it in screenshots or videos.
+Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. To keep a personal workspace across visits, enter an email address and verify the one-time code delivered to that inbox. File uploads are limited to verified email workspaces.
 
 Use synthetic or non-sensitive data for the public demo. The current deployment is a controlled demonstration, not a multi-tenant commercial service.
 
@@ -48,10 +48,13 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Set a strong local access token, then start the FastAPI/PWA app:
+Configure Gmail SMTP for email sign-in, then start the FastAPI/PWA app. Use a Gmail app password stored only in your shell or secret manager:
 
 ```bash
-export CLEARTRACE_ACCESS_TOKEN="replace-with-a-long-random-value"
+export CLEARTRACE_SMTP_USERNAME="your-sender@gmail.com"
+export CLEARTRACE_SMTP_PASSWORD="your-16-character-app-password"
+export CLEARTRACE_SMTP_FROM="$CLEARTRACE_SMTP_USERNAME"
+export CLEARTRACE_AUTH_ENABLED=true
 python run.py
 ```
 
@@ -61,14 +64,14 @@ Open `http://127.0.0.1:8000`. To start the companion Streamlit studio instead:
 python run.py --streamlit
 ```
 
-The token above is a local example. For hosted deployments, configure the token in the provider's secret manager. Never commit `.env` files, access tokens, email credentials, or encryption keys.
+For hosted deployments, configure these values in the provider's secret manager. Never commit `.env` files, email credentials, or encryption keys.
 
 ## Install on a phone
 
 - **iPhone:** open the HTTPS demo in Safari, tap **Share**, then **Add to Home Screen**.
 - **Android:** open the HTTPS demo in Chrome and choose **Install app** from the browser menu.
 
-The cached offline shell can launch the interface, but uploads and API operations need an internet connection. The current shared-token login is not individual user authentication.
+The cached offline shell can launch the interface, but sign-in, uploads, and API operations need an internet connection. Email OTP creates an individual email identity and persistent workspace; it is not an organization identity provider or role-management system.
 
 ## Architecture
 
@@ -84,7 +87,7 @@ The cached offline shell can launch the interface, but uploads and API operation
 
 ## Security and known limits
 
-The deployed demo uses one shared `CLEARTRACE_ACCESS_TOKEN`; it does **not** provide individual accounts, account-specific login alerts, or tenant-based roles. Email and SMS alert delivery works only when valid provider settings are configured. Encrypted persistence does not replace key management, access controls, retention policies, backups, or monitoring.
+ClearTrace uses short-lived, single-use email codes for sign-in and keeps account workspaces isolated. The public judge preview can inspect and repair synthetic sample data, but blocks uploads and expires after eight hours. Account login alert emails, administrator roles, and enterprise identity federation are not included in this OTP change. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
 
 Before handling confidential or regulated data, a production operator should add managed identity, per-user authorization and isolation, rate limiting, bounded shared session storage, backup and retention policies, and independent security review. Read [SECURITY.md](SECURITY.md) and the deployment checklist before exposing a new instance.
 

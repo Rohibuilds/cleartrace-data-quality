@@ -39,6 +39,10 @@ from cleartrace.persistence import (
     AuthenticationError,
     SecurityStorageError,
 )
+from cleartrace.auth import (
+    request_code, verify_code, get_user, logout as logout_auth_session,
+    create_public_demo, get_public_demo,
+)
 
 import secrets
 import re
@@ -144,6 +148,18 @@ _CSRF_PROTECTED_PATHS: set = {
     "/api/audit/reset",
     "/api/dataset/upload",
     "/api/dataset/demo",
+    "/api/auth/request-code",
+    "/api/auth/verify",
+    "/api/auth/logout",
+    "/api/auth/public-demo",
+}
+_PUBLIC_DEMO_MUTATION_PATHS: set = {
+    "/api/dataset/demo", "/api/dataset/math-demo",
+    "/api/repair/apply", "/api/repair/batch-apply",
+    "/api/audit/undo", "/api/audit/reset",
+    "/api/timemachine/compare", "/api/timemachine/restore",
+    "/api/math/validate", "/api/math/rules",
+    "/api/rag/search", "/api/rag/ask",
 }
 
 
@@ -184,6 +200,23 @@ def persist_session(token: Optional[str] = None, sm: Optional[SessionManager] = 
 
 class SessionIsolationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
+        path = request.url.path
+        auth_token = request.cookies.get("ct_auth_session", "")
+        auth_user = get_user(auth_token)
+        public_demo = get_public_demo(request.cookies.get("ct_public_demo"))
+        auth_enabled = os.environ.get("CLEARTRACE_AUTH_ENABLED", "true").lower() not in ("false", "0", "no")
+        auth_public_paths = {
+            "/api/health", "/api/auth/status", "/api/auth/request-code",
+            "/api/auth/verify", "/api/auth/logout", "/api/auth/public-demo",
+        }
+        anonymous_auth_request = auth_enabled and path in auth_public_paths and not auth_user and not public_demo
+        if auth_enabled and path.startswith("/api/"):
+            if path not in auth_public_paths and not auth_user and not public_demo:
+                from fastapi.responses import JSONResponse as _JSONResponse
+                return _JSONResponse(status_code=401, content={"detail": "Sign in with an email verification code, or open the sample evaluation workspace."})
+            if public_demo and request.method not in ("GET", "HEAD", "OPTIONS") and path not in _PUBLIC_DEMO_MUTATION_PATHS:
+                from fastapi.responses import JSONResponse as _JSONResponse
+                return _JSONResponse(status_code=403, content={"detail": "Uploads are disabled in the public sample workspace. Sign in by email to use your own files."})
         cookie_token = request.cookies.get("ct_session_id")
         header_token = request.headers.get("X-Session-ID")
 
@@ -195,7 +228,11 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
             request.headers.get("cf-ray")
             or request.headers.get("x-railway-request-id")
         )
-        if is_public_proxy:
+        if auth_enabled and auth_user:
+            raw_token = auth_user["workspace_id"]
+        elif auth_enabled and public_demo:
+            raw_token = public_demo["workspace_id"]
+        elif is_public_proxy:
             raw_token = cookie_token
         else:
             raw_token = header_token or cookie_token
@@ -205,7 +242,7 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
         else:
             token = raw_token
 
-        if token not in SESSION_STORE:
+        if not anonymous_auth_request and token not in SESSION_STORE:
             loaded = None
             try:
                 loaded = load_encrypted_session(token)
@@ -224,22 +261,6 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
 
         ctx_token = current_session_token.set(token)
         try:
-            # Enterprise Mode Authorization Gate:
-            # When CLEARTRACE_DEMO_MODE is disabled, all API endpoints (except health and login)
-            # strictly require verified authentication credentials.
-            demo_mode = os.environ.get("CLEARTRACE_DEMO_MODE", "true").lower() in ("true", "1")
-            if not demo_mode and request.url.path.startswith("/api/"):
-                if request.url.path not in ("/api/health", "/api/auth/status", "/api/auth/login"):
-                    if not check_access_authorization(request):
-                        from fastapi.responses import JSONResponse as _JSONResponse
-                        return _JSONResponse(
-                            status_code=401,
-                            content={
-                                "detail": "Authentication required. Supply a valid Authorization: Bearer token or X-Access-Token header."
-                            },
-                            headers={"WWW-Authenticate": "Bearer"},
-                        )
-
             # CSRF guard: state-mutating endpoints require verified same-origin or custom header.
             # 1. Reject cross-site requests signaled by modern browsers (Sec-Fetch-Site: cross-site)
             # 2. Reject requests with untrusted Origin header
@@ -275,18 +296,19 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
                         )
 
             response = await call_next(request)
-            response.headers["X-Session-ID"] = token
             is_https = (
                 request.url.scheme == "https"
                 or request.headers.get("x-forwarded-proto") == "https"
             )
-            response.set_cookie(
-                key="ct_session_id",
-                value=token,
-                httponly=True,
-                samesite="lax",
-                secure=is_https,
-            )
+            if not anonymous_auth_request and request.url.path not in ("/api/auth/verify", "/api/auth/logout"):
+                response.headers["X-Session-ID"] = token
+                response.set_cookie(
+                    key="ct_session_id",
+                    value=token,
+                    httponly=True,
+                    samesite="lax",
+                    secure=is_https,
+                )
             return response
         finally:
             current_session_token.reset(ctx_token)
@@ -378,37 +400,19 @@ class RAGAskRequest(BaseModel):
 
 
 def check_access_authorization(request: Request) -> bool:
-    """Verify whether caller is authorized via Bearer token, header, or cookie.
-    
-    URL query parameter tokens are explicitly rejected (OWASP ASVS / CWE-598) to prevent
-    leakage in server access logs, browser history, and Referer headers.
-    """
-    expected_token = os.environ.get("CLEARTRACE_ACCESS_TOKEN")
-    if not expected_token:
+    """Compatibility helper: authorization is an email-verified server session."""
+    if os.environ.get("CLEARTRACE_AUTH_ENABLED", "true").lower() in ("false", "0", "no"):
         return True
-
-    # 1. Authorization: Bearer <token>
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        bearer = auth_header[7:].strip()
-        if secrets.compare_digest(bearer, expected_token):
-            return True
-
-    # 2. X-Access-Token header
-    custom_hdr = request.headers.get("x-access-token", "")
-    if custom_hdr and secrets.compare_digest(custom_hdr, expected_token):
-        return True
-
-    # 3. Secure HttpOnly Cookie ct_access_token
-    cookie_tok = request.cookies.get("ct_access_token", "")
-    if cookie_tok and secrets.compare_digest(cookie_tok, expected_token):
-        return True
-
-    return False
+    return get_user(request.cookies.get("ct_auth_session")) is not None
 
 
-class LoginRequest(BaseModel):
-    token: str
+class EmailCodeRequest(BaseModel):
+    email: str
+
+
+class VerifyCodeRequest(BaseModel):
+    email: str
+    code: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -456,34 +460,90 @@ def health() -> Dict[str, Any]:
 
 @app.get("/api/auth/status")
 def auth_status(request: Request) -> Dict[str, Any]:
-    """Return authentication requirements and authorization status."""
-    expected = bool(os.environ.get("CLEARTRACE_ACCESS_TOKEN"))
-    authorized = check_access_authorization(request)
-    demo_mode = os.environ.get("CLEARTRACE_DEMO_MODE", "true").lower() in ("true", "1")
+    """Return whether the browser has a valid email-verified session."""
+    required = os.environ.get("CLEARTRACE_AUTH_ENABLED", "true").lower() not in ("false", "0", "no")
+    user = get_user(request.cookies.get("ct_auth_session")) if required else None
+    public_demo = get_public_demo(request.cookies.get("ct_public_demo")) if required else None
     return {
-        "auth_required": expected,
-        "is_authenticated": authorized,
-        "demo_mode": demo_mode,
+        "auth_required": required,
+        "is_authenticated": (user is not None) if required else True,
+        "is_public_demo": public_demo is not None,
+        "email": user["email"] if user else None,
     }
 
 
-@app.post("/api/auth/login")
-def auth_login(login: LoginRequest, response: Response) -> Dict[str, Any]:
-    """Authenticate with access token and set secure session cookie."""
-    expected_token = os.environ.get("CLEARTRACE_ACCESS_TOKEN")
-    if not expected_token:
-        return {"success": True, "message": "Authentication not required (demo mode active)."}
-    if secrets.compare_digest(login.token, expected_token):
-        response.set_cookie(
-            key="ct_access_token",
-            value=login.token,
-            httponly=True,
-            samesite="lax",
-            secure=True,
-            max_age=86400 * 7,
-        )
-        return {"success": True, "message": "Authenticated successfully."}
-    raise HTTPException(status_code=401, detail="Invalid access token.")
+@app.post("/api/auth/request-code")
+def auth_request_code(payload: EmailCodeRequest, request: Request) -> Dict[str, Any]:
+    """Email a short-lived, single-use sign-in code."""
+    email = payload.email.strip().lower()
+    if len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    client_ip = request.headers.get("x-forwarded-for", "")
+    if client_ip:
+        client_ip = client_ip.split(",", 1)[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+    try:
+        request_code(email, client_ip)
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"success": True, "message": "If email delivery is available, a sign-in code is on its way."}
+
+
+@app.post("/api/auth/verify")
+def auth_verify_code(payload: VerifyCodeRequest, request: Request, response: Response) -> Dict[str, Any]:
+    """Consume a valid one-time code and establish an account workspace session."""
+    try:
+        session_token, workspace_id = verify_code(payload.email, payload.code)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(
+        key="ct_auth_session", value=session_token, httponly=True, secure=is_https,
+        samesite="lax", max_age=30 * 86400, path="/",
+    )
+    response.set_cookie(
+        key="ct_session_id", value=workspace_id, httponly=True, secure=is_https,
+        samesite="lax", max_age=30 * 86400, path="/",
+    )
+    return {"success": True, "message": "Signed in successfully."}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(request: Request, response: Response) -> Dict[str, Any]:
+    """Revoke this browser session and clear its cookies."""
+    logout_auth_session(request.cookies.get("ct_auth_session"))
+    response.delete_cookie("ct_auth_session", path="/", httponly=True, secure=request.url.scheme == "https", samesite="lax")
+    response.delete_cookie("ct_session_id", path="/", httponly=True, secure=request.url.scheme == "https", samesite="lax")
+    return {"success": True}
+
+
+@app.post("/api/auth/public-demo")
+def auth_public_demo(request: Request, response: Response) -> Dict[str, Any]:
+    """Issue an expiring sandbox workspace backed by synthetic sample data."""
+    source_ip = request.headers.get("x-forwarded-for", "")
+    if source_ip:
+        source_ip = source_ip.split(",", 1)[0].strip()
+    else:
+        source_ip = request.client.host if request.client else "unknown"
+    try:
+        token, workspace_id = create_public_demo(source_ip)
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    SESSION_STORE[workspace_id] = SessionManager(load_demo_dataset(), filename="synthetic_quality_issues.csv")
+    persist_session(workspace_id)
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(
+        key="ct_public_demo", value=token, httponly=True, secure=is_https,
+        samesite="lax", max_age=8 * 60 * 60, path="/",
+    )
+    response.set_cookie(
+        key="ct_session_id", value=workspace_id, httponly=True, secure=is_https,
+        samesite="lax", max_age=8 * 60 * 60, path="/",
+    )
+    return {"success": True, "message": "Sample evaluation workspace opened."}
 
 
 @app.post("/api/dataset/upload")
@@ -492,7 +552,7 @@ async def upload_csv(request: Request, file: UploadFile = File(...)) -> Dict[str
     if not demo_mode and not check_access_authorization(request):
         raise HTTPException(
             status_code=401,
-            detail="Authentication required. Please provide valid CLEARTRACE_ACCESS_TOKEN.",
+            detail="Sign in with an email verification code to continue.",
         )
 
     fname = file.filename or "uploaded.csv"

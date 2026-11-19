@@ -133,28 +133,52 @@ function showClearTraceLogin() {
 
   dialog.innerHTML = `
     <h2 style="font-size:25px;margin:0 0 12px">
-      ClearTrace Secure Access
+      Welcome to ClearTrace
     </h2>
     <p style="color:#b8c7de;line-height:1.5">
-      Enter your private access token to unlock the workspace.
+    Sign in with an email code to save your own workspace, or explore and repair a sample as a judge.
     </p>
     <form id="ct-login-form">
-      <input id="ct-login-token"
-        type="password" required autocomplete="off"
-        aria-label="Access token"
-        placeholder="Enter access token"
+      <label for="ct-login-email" style="display:block;margin:12px 0 6px;color:#b8c7de">Email address</label>
+      <input id="ct-login-email"
+        type="email" required autocomplete="email" maxlength="254"
+        aria-label="Email address"
+        placeholder="you@example.com"
         style="width:100%;box-sizing:border-box;padding:14px;
         background:#080e1e;color:white;border:1px solid #506589;
         border-radius:10px;font-size:16px">
+      <div id="ct-code-wrap" hidden>
+        <label for="ct-login-code" style="display:block;margin:12px 0 6px;color:#b8c7de">6-digit code</label>
+        <input id="ct-login-code" type="text" inputmode="numeric" pattern="[0-9]{6}"
+          maxlength="6" autocomplete="one-time-code" aria-label="Email verification code"
+          placeholder="Enter the code from your email"
+          style="width:100%;box-sizing:border-box;padding:14px;
+          background:#080e1e;color:white;border:1px solid #506589;
+          border-radius:10px;font-size:16px;letter-spacing:.2em">
+      </div>
+      <button id="ct-change-email" type="button" hidden
+        style="margin-top:8px;border:0;background:transparent;color:#a9c6ff;font-size:13px">
+        Use a different email
+      </button>
       <button id="ct-login-button" type="submit"
         style="margin-top:16px;width:100%;padding:14px;
         border:0;border-radius:10px;background:#467dec;
         color:white;font-size:16px;font-weight:700">
-        Sign In Securely
+        Email me a sign-in code
       </button>
       <p id="ct-login-error" role="alert"
         style="color:#ffaaaa;min-height:20px"></p>
     </form>
+    <div style="border-top:1px solid #384765;margin-top:12px;padding-top:16px">
+      <button id="ct-public-demo" type="button"
+        style="width:100%;padding:13px;border:1px solid #506589;border-radius:10px;
+        background:transparent;color:#dce8ff;font-size:15px;font-weight:650">
+        Explore sample workspace · no sign-in
+      </button>
+      <p style="color:#8fa2bf;font-size:12px;line-height:1.5;margin:9px 0 0">
+        Explore and repair sample data in a temporary workspace. Personal file uploads need email sign-in.
+      </p>
+    </div>
   `;
 
   document.body.appendChild(dialog);
@@ -162,38 +186,85 @@ function showClearTraceLogin() {
   dialog.showModal();
 
   const form = dialog.querySelector('#ct-login-form');
-  const input = dialog.querySelector('#ct-login-token');
+  const emailInput = dialog.querySelector('#ct-login-email');
+  const codeInput = dialog.querySelector('#ct-login-code');
+  const codeWrap = dialog.querySelector('#ct-code-wrap');
+  const changeEmailButton = dialog.querySelector('#ct-change-email');
   const button = dialog.querySelector('#ct-login-button');
+  const demoButton = dialog.querySelector('#ct-public-demo');
   const error = dialog.querySelector('#ct-login-error');
+  let codeRequested = false;
 
-  input.focus();
+  emailInput.focus();
+
+  changeEmailButton.addEventListener('click', () => {
+    codeRequested = false;
+    codeWrap.hidden = true;
+    codeInput.required = false;
+    codeInput.value = '';
+    changeEmailButton.hidden = true;
+    button.textContent = 'Email me a sign-in code';
+    error.textContent = '';
+    emailInput.focus();
+  });
+
+  demoButton.addEventListener('click', async () => {
+    demoButton.disabled = true;
+    error.style.color = '#ffaaaa';
+    error.textContent = '';
+    try {
+      const response = await fetch('/api/auth/public-demo', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: '{}'
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success !== true) throw new Error(result.detail || 'Could not open the sample workspace.');
+      window.location.reload();
+    } catch (err) {
+      error.textContent = err.message || 'Could not open the sample workspace.';
+      demoButton.disabled = false;
+    }
+  });
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    const token = input.value.trim();
-    if (!token) return;
+    const email = emailInput.value.trim().toLowerCase();
+    if (!email) return;
 
     button.disabled = true;
     error.textContent = '';
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(codeRequested ? '/api/auth/verify' : '/api/auth/request-code', {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({ token })
+        body: JSON.stringify(codeRequested ? { email, code: codeInput.value.trim() } : { email })
       });
 
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok || result.success !== true) {
-        throw new Error(result.detail || 'Invalid access token.');
+        throw new Error(result.detail || 'Sign-in could not be completed.');
       }
 
-      input.value = '';
+      if (!codeRequested) {
+        codeRequested = true;
+        codeWrap.hidden = false;
+        codeInput.required = true;
+        changeEmailButton.hidden = false;
+        button.textContent = 'Verify code and sign in';
+        error.style.color = '#a9e5c1';
+        error.textContent = 'If the address can receive sign-in mail, a code is on its way.';
+        codeInput.focus();
+        return;
+      }
+
+      codeInput.value = '';
 
       const check = await fetch('/api/auth/status', {
         credentials: 'same-origin',
@@ -209,9 +280,14 @@ function showClearTraceLogin() {
       window.location.reload();
 
     } catch (err) {
+      error.style.color = '#ffaaaa';
       error.textContent = err.message || 'Sign-in failed.';
-      input.value = '';
-      input.focus();
+      if (codeRequested) {
+        codeInput.value = '';
+        codeInput.focus();
+      } else {
+        emailInput.focus();
+      }
     } finally {
       button.disabled = false;
     }
@@ -354,7 +430,7 @@ async function api(endpoint, options = {}) {
 
   // 3. Detect Cloudflare Access Authentication / Session Expiration
   if (res.status === 401 || isCloudflareRedirect || (isHtml && (res.status === 200 || !res.ok))) {
-    const authMessage = 'ClearTrace sign-in required. Enter your access token.';
+    const authMessage = 'ClearTrace sign-in required. Use an email code or open the sample evaluation.';
     triggerAuthExpiredBanner(authMessage);
     const authErr = new Error(authMessage);
     authErr.name = 'AuthenticationError';

@@ -76,9 +76,9 @@ links.append((185,y-2,390,y+11,"https://cleartrace-web-production.up.railway.app
 y-=45
 rect(48,y-65,499,75,(.99,.975,.92),(.88,.79,.54),7)
 text(61,y-12,"DEMO SCOPE",8,"F2",(.51,.39,.12))
-text(61,y-29,"The hosted demo currently uses one shared access token, not individual user accounts.",8,"F1",(.29,.27,.21))
-text(61,y-43,"Email/SMS alerts depend on provider setup. Use synthetic data; do not upload confidential",8,"F1",(.29,.27,.21))
-text(61,y-57,"datasets to the public demo. Offline mode caches only the app shell.",8,"F1",(.29,.27,.21))
+text(61,y-29,"Judges can explore and repair synthetic data without signing in.",8,"F1",(.29,.27,.21))
+text(61,y-43,"The temporary judge workspace blocks uploads; personal accounts use email codes.",8,"F1",(.29,.27,.21))
+text(61,y-57,"Email-code delivery needs Gmail SMTP setup. Do not upload confidential datasets.",8,"F1",(.29,.27,.21))
 line(48,48,547,48)
 text(48,31,"CLEARTRACE  /  DATA QUALITY MADE REVIEWABLE",7,"F2",(.45,.52,.60))
 text(445,31,"SUBMISSION BRIEF",7,"F2",(.45,.52,.60))

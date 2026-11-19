@@ -146,21 +146,25 @@ CLEARTRACE_DATA_DIR=/data
 # Generate locally using: python3 -c "import secrets; print(secrets.token_hex(32))"
 CLEARTRACE_MASTER_KEY=<YOUR_GENERATED_64_CHAR_HEX_KEY>
 
-# Access Mode: true for open hackathon evaluation; false for enterprise lockdown
+# Synthetic sample workflows; email verification remains enabled.
 CLEARTRACE_DEMO_MODE=true
 
-# High-Entropy Access Token (never use hardcoded/predictable passwords)
-# Generate locally using: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-# Note: Tokens in URL query strings (?token=...) are strictly rejected (OWASP ASVS / CWE-598).
-# Supply tokens via 'Authorization: Bearer <token>' or 'X-Access-Token: <token>' headers only.
-CLEARTRACE_ACCESS_TOKEN=<YOUR_GENERATED_STRONG_ACCESS_TOKEN>
+# Email one-time-code sign-in (Google app password, not your Gmail account password)
+CLEARTRACE_AUTH_ENABLED=true
+CLEARTRACE_SMTP_HOST=smtp.gmail.com
+CLEARTRACE_SMTP_PORT=587
+CLEARTRACE_SMTP_USERNAME=<YOUR_GMAIL_ADDRESS>
+CLEARTRACE_SMTP_PASSWORD=<YOUR_GMAIL_APP_PASSWORD>
+CLEARTRACE_SMTP_FROM=<YOUR_GMAIL_ADDRESS>
+# Optional: comma-separated addresses allowed to sign in. Leave unset for judge self-service.
+# CLEARTRACE_AUTH_ALLOWED_EMAILS=judge1@example.com,judge2@example.com
 
 # Upload Limit in MB (supported: CSV, TSV, XLSX, PDF; legacy .xls rejected)
 CLEARTRACE_MAX_UPLOAD_MB=15
 ```
 
 > [!IMPORTANT]
-> **Action Required by User:** Generate `CLEARTRACE_MASTER_KEY` and `CLEARTRACE_ACCESS_TOKEN` using the commands above and store them in a secure password manager.
+> **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Gmail app password in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. The public judge preview does not require email configuration.
 
 #### Step 3: Attach Railway Persistent Volume
 1. In the service view, click **+ Add Volume** (or go to **Settings** $\rightarrow$ **Volumes**).
@@ -191,15 +195,21 @@ railway volume add --mount-path /data
 
 # 5. Set environment variables with securely generated secrets
 MASTER_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-ACCESS_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+read -r -p "Gmail sender address: " SMTP_USERNAME
+read -r -s -p "Gmail app password: " SMTP_PASSWORD; echo
 
 railway variables set \
   HOST="0.0.0.0" \
   CLEARTRACE_DATA_DIR="/data" \
   CLEARTRACE_DEMO_MODE="true" \
+  CLEARTRACE_AUTH_ENABLED="true" \
   CLEARTRACE_MAX_UPLOAD_MB="15" \
   CLEARTRACE_MASTER_KEY="$MASTER_KEY" \
-  CLEARTRACE_ACCESS_TOKEN="$ACCESS_TOKEN"
+  CLEARTRACE_SMTP_HOST="smtp.gmail.com" \
+  CLEARTRACE_SMTP_PORT="587" \
+  CLEARTRACE_SMTP_USERNAME="$SMTP_USERNAME" \
+  CLEARTRACE_SMTP_PASSWORD="$SMTP_PASSWORD" \
+  CLEARTRACE_SMTP_FROM="$SMTP_USERNAME"
 
 # 6. Deploy code
 railway up
@@ -257,7 +267,7 @@ content-type: application/json
 |:--------|:---------------|:----------------------|
 | **502 Bad Gateway** | Application failed to bind to `$PORT` or died on startup | Check logs; verify `python3 server.py` binds to `0.0.0.0:$PORT`. |
 | **503 Service Unavailable** | Persistent volume not mounted | Confirm volume mount path is `/data` and service has volume attached. |
-| **401 Unauthorized on Upload** | `CLEARTRACE_DEMO_MODE=false` without access token | Supply `Authorization: Bearer <CLEARTRACE_ACCESS_TOKEN>` header. (Query param `?token=` is rejected). |
+| **Sign-in code not received** | Gmail SMTP variables missing or invalid | Check Railway Variables, use a Gmail app password, then redeploy. The public judge preview remains available without mail setup. |
 | **400 Bad Request on .xls** | Legacy Excel 97-2003 uploaded | Save file as modern `.xlsx` or `.csv` and re-upload. |
 | **429 Too Many Requests** | Rate limit exceeded (>180 requests/min per IP) | Wait 60 seconds. Rate limiter resets sliding window automatically. |
 | **SecurityStorageError: Refusing to regenerate key** | Master key missing while session files exist | Set `CLEARTRACE_MASTER_KEY` environment variable in Railway Dashboard. |
