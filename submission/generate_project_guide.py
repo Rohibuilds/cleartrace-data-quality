@@ -326,10 +326,10 @@ story.append(PageBreak())
 
 # 9
 story += [P("9. Current release and known limits", "H1CT"),
-          P("The current source revision is being prepared as v2.3.4. It extends content-free owner activity alerts. The current production status has Gmail SMTP delivery disabled because CLEARTRACE_SMTP_PASSWORD is not configured. A fresh live deployment check is required before presenting this release.")]
+          P("Source revision 83ee6aa is deployed as v2.3.4 in Railway deployment b29f8ed2-b14f-4756-ae27-e488e3e9015a (SUCCESS). The live health check is healthy and the public synthetic sample returns 93.8/A. Gmail SMTP delivery remains disabled because CLEARTRACE_SMTP_PASSWORD is not configured.")]
 story.append(data_table(["Status", "Detail"], [
-    ["Verified source checks", "81 tests pass after the editable-email and owner-activity notification changes; JavaScript syntax and diff checks pass."],
-    ["Live release", "Deployment and live endpoint verification are pending for v2.3.4."],
+    ["Verified source checks", "81 tests pass after the editable-email and owner-activity notification changes; JavaScript syntax, diff checks, and Bandit pass (one expected 0.0.0.0 bind warning)."],
+    ["Live release", "Railway deployment b29f8ed2 reports success at v2.3.4; /health is healthy; the judge sample returns 93.8/A."],
     ["OTP/owner alerts", "Notification code is implemented but cannot deliver until SMTP settings including CLEARTRACE_SMTP_PASSWORD are present and real email is verified."],
     ["Fix deployed", "API reports mail setup unavailable before attempting OTP; the email field stays editable, while the send button remains unavailable until SMTP is configured. PWA cache version is advanced to refresh mobile users."],
     ["Google sign-in", "Optional; no live OAuth credentials, so disabled/not verified."],

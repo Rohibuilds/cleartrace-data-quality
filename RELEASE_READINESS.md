@@ -35,8 +35,8 @@ A mobile screenshot showed the user-entered email request failing with a generic
 - [x] Synthetic judge preview is documented as the public path.
 - [x] Mobile service-worker cache name is advanced with the login UI update.
 - [x] Automated tests, JavaScript syntax, and Bandit scan run against the updated source (see `TEST_REPORT.md`).
-- [x] Push the reviewed release (`c2ac39b`) to the public GitHub main branch.
-- [x] Deploy the reviewed source revision to Railway (`dbd0a404-f3e6-49ea-a836-bf7d61d0e17a`) and verify `/health`, auth status, the OTP response, editable-email UI assets, and updated PWA cache.
+- [x] Push the reviewed release (`83ee6aa`) to the public GitHub main branch.
+- [x] Deploy the reviewed source revision to Railway (`b29f8ed2-b14f-4756-ae27-e488e3e9015a`) and verify `/health`, auth status, editable-email UI assets, updated PWA cache, and the public judge sample.
 - [ ] Add `CLEARTRACE_SMTP_PASSWORD` and confirm one live OTP email and owner alert without exposing the credential.
 - [ ] Configure/test Google OIDC if that login option is required.
 - [ ] Record and verify a public demo video link if required by the submission.
