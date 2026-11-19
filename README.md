@@ -32,7 +32,7 @@ The product is designed to keep data repair visible and deliberate: findings are
 
 ## Try the deployed demo
 
-Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. Personal email OTP requires a configured SMTP sender and app password. The current Railway deployment was last verified with SMTP delivery disabled, so use the sample workspace until the operator adds `CLEARTRACE_SMTP_PASSWORD` (and confirms a real delivery test). File uploads are limited to verified email workspaces.
+Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. Personal email OTP requires a configured SMTP sender and app password. The email field remains editable, but the send button stays unavailable until `CLEARTRACE_SMTP_PASSWORD` is added in Railway and a real delivery test succeeds. File uploads are limited to verified email workspaces.
 
 Use synthetic or non-sensitive data for the public demo. The current deployment is a controlled demonstration, not a multi-tenant commercial service.
 
@@ -87,7 +87,7 @@ The cached offline shell can launch the interface, but sign-in, uploads, and API
 
 ## Security and known limits
 
-ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. When SMTP is configured, the owner receives email notices for successful sign-ins and repeated invalid code attempts. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
+ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. With Gmail SMTP configured, the owner at `CLEARTRACE_OWNER_EMAIL` receives content-free notices for code requests, successful sign-ins, repeated invalid codes, sign-outs, uploads, sample loads, repair approvals/rejections, undo/reset/restore, rule changes, exports, and role changes. Notices contain the account/role, UTC time, and a truncated keyed network fingerprint; they never include dataset rows or uploaded contents. Delivery is best-effort: SMTP credentials and a live test are required, and failed mail does not undo workspace changes. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
 
 Before handling confidential or regulated data, a production operator should add managed identity, per-user authorization and isolation, rate limiting, bounded shared session storage, backup and retention policies, and independent security review. Read [SECURITY.md](SECURITY.md) and the deployment checklist before exposing a new instance.
 

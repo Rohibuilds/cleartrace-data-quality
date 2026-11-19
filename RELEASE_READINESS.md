@@ -12,21 +12,22 @@
 
 ## Confirmed public behavior
 
-The latest deployment verification (v2.3.2) found:
+The latest deployment verification (v2.3.4) found:
 
 - `/health` returned healthy and storage ready.
 - Protected quality APIs rejected anonymous requests.
 - The no-login synthetic sample workspace opened; the quality score endpoint returned 93.8/A.
 - The sample's score endpoint returned 93.8/100, Grade A, at that point in time.
 - Upload from the public judge workspace was rejected.
-- SMTP delivery, owner alerts, and Google sign-in are off.
-- The login UI/API explain that OTP mail is unavailable and point users to the sample workspace.
+- SMTP delivery and owner alert delivery are off; Google sign-in is off.
+- The login UI leaves the email field editable, explains why no code can be sent, and keeps the send action unavailable until SMTP is configured.
+- Content-free owner notification hooks cover sign-in/code activity and meaningful workspace changes. They are not live until SMTP is configured and a real delivery test succeeds.
 
 See `TEST_REPORT.md` for the deployment revision/date and verification scope. These values can change after subsequent deployments or variable edits.
 
 ## Recent login error diagnosis
 
-A mobile screenshot showed the user-entered email request failing with a generic mail error. The recorded production configuration had no `CLEARTRACE_SMTP_PASSWORD`. Without an SMTP app password the server cannot send the one-time code. The source now checks delivery configuration before creating an OTP challenge, returns an actionable service-unavailable response, and presents the public sample as the no-login alternative. The login UI disables the email action when the status endpoint reports SMTP is unavailable. This code change does not provision credentials or verify live delivery.
+A mobile screenshot showed the user-entered email request failing with a generic mail error. The recorded production configuration had no `CLEARTRACE_SMTP_PASSWORD`. Without an SMTP app password the server cannot send the one-time code. The source now checks delivery configuration before creating an OTP challenge and returns an actionable service-unavailable response. The login UI leaves the email field editable, explains the setup gap, and keeps sending disabled until SMTP is available. This code change does not provision credentials or verify live delivery.
 
 ## Release checklist
 
@@ -34,8 +35,8 @@ A mobile screenshot showed the user-entered email request failing with a generic
 - [x] Synthetic judge preview is documented as the public path.
 - [x] Mobile service-worker cache name is advanced with the login UI update.
 - [x] Automated tests, JavaScript syntax, and Bandit scan run against the updated source (see `TEST_REPORT.md`).
-- [x] Push the reviewed release (`2632d3d`) to the public GitHub main branch.
-- [x] Deploy the reviewed source revision to Railway (`53f85fd7-c0ac-4a5b-88e1-3a49e06093c4`) and verify `/health`, auth status, the OTP response, judge sample score, and updated PWA assets.
+- [x] Push the reviewed release (`c2ac39b`) to the public GitHub main branch.
+- [x] Deploy the reviewed source revision to Railway (`dbd0a404-f3e6-49ea-a836-bf7d61d0e17a`) and verify `/health`, auth status, the OTP response, editable-email UI assets, and updated PWA cache.
 - [ ] Add `CLEARTRACE_SMTP_PASSWORD` and confirm one live OTP email and owner alert without exposing the credential.
 - [ ] Configure/test Google OIDC if that login option is required.
 - [ ] Record and verify a public demo video link if required by the submission.

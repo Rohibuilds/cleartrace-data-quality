@@ -290,7 +290,7 @@ story += [P("7. Identity, security, and privacy", "H1CT"),
 story.append(data_table(["Area", "Implemented behavior", "Live status / boundary"], [
     ["Email OTP", "Six-digit single-use code; ten-minute expiry; bounded attempts and request cooldown/rate limits; opaque server-side session token stored as a digest.", "Code exists, but email delivery is unavailable until Gmail SMTP is configured."],
     ["Cookies", "HttpOnly, SameSite=Lax; Secure on HTTPS; revocable session records; 30-day auth session expiry.", "Depends on persistent storage for continuity across service restarts."],
-    ["Owner alerts", "Code sends owner notices on successful sign-in and repeated invalid-code attempts when SMTP is configured.", "Not verified live; uses the same missing SMTP credentials."],
+    ["Owner alerts", "Content-free notices cover OTP requests, successful sign-ins, repeated invalid codes, sign-outs, uploads, samples, repair approve/reject, undo/reset/restore, rule changes, exports, and role updates. Mail failure never rolls back the workspace action.", "Not verified live; uses the same missing SMTP credentials."],
     ["Google OIDC", "Optional state-bound flow; verifies token signature, issuer, audience, expiry, and verified email.", "Disabled until Google OAuth client ID/secret and redirect are configured."],
     ["Roles", "Owner/admin/analyst/viewer policies; viewer mutation restrictions; one owner-managed organization workspace.", "Code is deployed; live exercise needs working sign-in. Assigned members share org data."],
     ["Stored workspace", "AES-256-GCM authenticated encryption for persisted workspace snapshots; session identity bound as AAD; restricted key files or environment key.", "Requires persistent volume and durable key management. Encryption does not replace authorization/backups."],
@@ -326,17 +326,17 @@ story.append(PageBreak())
 
 # 9
 story += [P("9. Current release and known limits", "H1CT"),
-          P("The current source revision 2632d3d passed 80 automated tests (20 November 2026). It is deployed to Railway as v2.3.2 in deployment 53f85fd7-c0ac-4a5b-88e1-3a49e06093c4, reported SUCCESS. Live checks found /health healthy, the no-login synthetic sample available with a score of 93.8 / 100, and the updated login/PWA assets present.")]
+          P("The current source revision is being prepared as v2.3.4. It extends content-free owner activity alerts. The current production status has Gmail SMTP delivery disabled because CLEARTRACE_SMTP_PASSWORD is not configured. A fresh live deployment check is required before presenting this release.")]
 story.append(data_table(["Status", "Detail"], [
-    ["Verified source checks", "80 tests passing after the login setup feedback change; JavaScript syntax and diff checks pass; Bandit found no enabled issues in server.py and auth.py (one intentional 0.0.0.0 bind warning)."],
-    ["Live release", "Railway deployment 53f85fd7 reports success at v2.3.2; /health is healthy; the sample workspace returns 93.8/A; protected APIs require a session."],
-    ["OTP/owner alerts", "Not working live until SMTP settings including CLEARTRACE_SMTP_PASSWORD are present and a real email is delivered. The mobile screenshot showed the resulting send failure."],
-    ["Fix deployed", "API reports mail setup unavailable before attempting OTP; login UI displays the state, disables the unavailable email action, and points users to the no-login sample. PWA cache version is advanced to refresh mobile users."],
+    ["Verified source checks", "81 tests pass after the editable-email and owner-activity notification changes; JavaScript syntax and diff checks pass."],
+    ["Live release", "Deployment and live endpoint verification are pending for v2.3.4."],
+    ["OTP/owner alerts", "Notification code is implemented but cannot deliver until SMTP settings including CLEARTRACE_SMTP_PASSWORD are present and real email is verified."],
+    ["Fix deployed", "API reports mail setup unavailable before attempting OTP; the email field stays editable, while the send button remains unavailable until SMTP is configured. PWA cache version is advanced to refresh mobile users."],
     ["Google sign-in", "Optional; no live OAuth credentials, so disabled/not verified."],
     ["Not included", "SAML, SCIM, multi-organization tenancy, formal compliance certification, independent security audit, SMS alerts, native iOS/Android binaries."],
     ["Production readiness", "For a real customer rollout add shared/managed session storage, tested backup and key rotation/recovery, retention/deletion controls, monitoring, stricter abuse throttles, tenant policy controls, and an independent security review."],
 ], [37 * mm, 131 * mm]))
-story += [Spacer(1, 5 * mm), callout("The exact screenshot diagnosis", "The phone form reached the OTP endpoint and the endpoint returned its generic mail-delivery failure. The previously verified Railway status showed smtp_delivery_enabled=false because CLEARTRACE_SMTP_PASSWORD was missing. The code cannot send an email until the app password is set privately in Railway Variables. The UI/API change makes this setup state explicit; it does not create or guess an email credential.", PALE_AMBER)]
+story += [Spacer(1, 5 * mm), callout("The exact screenshot diagnosis", "The phone form reached the OTP endpoint and the endpoint returned its generic mail-delivery failure. The latest Railway status shows smtp_delivery_enabled=false because CLEARTRACE_SMTP_PASSWORD is missing. The app cannot send an email until the app password is set privately in Railway Variables. The email field now stays editable; the send button remains unavailable until mail is configured. The app does not create or guess an email credential.", PALE_AMBER)]
 story.append(PageBreak())
 
 # 10
@@ -365,11 +365,11 @@ qa2 = [
     ("12. Is data encrypted?", "Persisted workspace snapshots use AES-256-GCM authenticated encryption in the code. Proper security still depends on a durable key, persistent volume, access controls, backups, and operational key management; this is not a claim of end-to-end encryption or a certification."),
     ("13. Can judges try it without an account?", "Yes. Choose 'Explore sample workspace' to enter an isolated temporary workspace loaded with synthetic data. Upload is blocked in that judge session."),
     ("14. Why did email OTP fail in the screenshot?", "Outbound Gmail SMTP was not configured because the Railway app password variable was absent in the latest verification. The source now reports that setup state clearly and directs visitors to the judge sample. Real personal sign-in requires the owner to configure SMTP and test delivery."),
-    ("15. Are owner email alerts working?", "The code sends sign-in and repeated-failure notices when mail is configured. They are not live-verified in the current deployment because the same SMTP password is missing."),
+    ("15. Are owner email alerts working?", "Content-free notices are implemented for code requests, sign-ins and failures, sign-outs, uploads, repair choices, rollback/reset/restore, rules, exports, and role changes. The live deployment cannot deliver them until SMTP is configured and tested."),
     ("16. Is Google sign-in enabled?", "Google OIDC is optional in the code, but it is off until the OAuth client ID, secret, public URL, and matching callback are configured. It has not been live-tested in this deployment."),
     ("17. Can a team share a workspace?", "The code supports one owner-managed organization workspace with owner/admin/analyst/viewer roles. Members assigned to that organization share its datasets under role limits. It does not support multiple organizations, SAML, or SCIM."),
     ("18. Is this a phone app?", "It is a responsive installable PWA, so it can be added to an iPhone or Android home screen. It is not a native app-store build. Online data operations still need a network connection."),
-    ("19. How was it tested?", "The updated source passes 80 automated tests, including API, adversarial input, persistence encryption, role restrictions, OTP behavior with mocked mail, math rules, and deployment middleware. Mock SMTP tests verify code behavior but do not prove Gmail delivery."),
+    ("19. How was it tested?", "The updated source passes 81 automated tests, including API, adversarial input, persistence encryption, role restrictions, OTP and activity notifications with mocked mail, math rules, and deployment middleware. Mock SMTP tests verify code behavior but do not prove Gmail delivery."),
     ("20. What would you build next for production?", "Configure and verify a real mail provider, use managed identity or strong organizational SSO, add multi-tenant policy boundaries, shared bounded session storage, monitored rate limits, tested recovery/retention, and independent security review."),
 ]
 for q, a in qa2:

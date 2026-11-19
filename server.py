@@ -44,6 +44,7 @@ from cleartrace.auth import (
     create_public_demo, get_public_demo, get_role, set_user_role,
     google_authorization_url, consume_oauth_state, exchange_google_code,
     verify_google_id_token, create_google_session, smtp_delivery_enabled,
+    notify_owner_activity,
 )
 
 import secrets
@@ -58,7 +59,7 @@ logger = logging.getLogger("cleartrace.server")
 
 app = FastAPI(
     title="ClearTrace API",
-    version="2.3.3",
+    version="2.3.4",
     description="Autonomous Data Quality and Traceable Repair Engine",
 )
 
@@ -146,6 +147,7 @@ SESSION_STORE: Dict[str, SessionManager] = {}
 _CSRF_PROTECTED_PATHS: set = {
     "/api/repair/apply",
     "/api/repair/batch-apply",
+    "/api/repair/reject-notice",
     "/api/audit/undo",
     "/api/audit/reset",
     "/api/dataset/upload",
@@ -159,6 +161,7 @@ _CSRF_PROTECTED_PATHS: set = {
 _PUBLIC_DEMO_MUTATION_PATHS: set = {
     "/api/dataset/demo", "/api/dataset/math-demo",
     "/api/repair/apply", "/api/repair/batch-apply",
+    "/api/repair/reject-notice",
     "/api/audit/undo", "/api/audit/reset",
     "/api/timemachine/compare", "/api/timemachine/restore",
     "/api/math/validate", "/api/math/rules",
@@ -167,6 +170,7 @@ _PUBLIC_DEMO_MUTATION_PATHS: set = {
 _ROLE_PROTECTED_MUTATIONS: set = {
     "/api/dataset/upload", "/api/dataset/demo", "/api/dataset/math-demo",
     "/api/repair/apply", "/api/repair/batch-apply", "/api/audit/undo",
+    "/api/repair/reject-notice",
     "/api/audit/reset", "/api/timemachine/restore", "/api/math/rules",
 }
 
@@ -357,6 +361,10 @@ class ApplyRequest(BaseModel):
     expected_revision: int
 
 
+class RejectRepairRequest(BaseModel):
+    finding_id: str
+
+
 class BatchApplyRequest(BaseModel):
     finding_ids: List[str]
     expected_revision: int
@@ -419,6 +427,20 @@ def check_access_authorization(request: Request) -> bool:
     return get_user(request.cookies.get("ct_auth_session")) is not None
 
 
+def notify_owner_for_request(request: Request, event: str) -> None:
+    """Best-effort content-free email for a meaningful workspace action."""
+    try:
+        user = get_user(request.cookies.get("ct_auth_session"))
+        demo = get_public_demo(request.cookies.get("ct_public_demo"))
+        email = user.get("email") if user else ("Public sample workspace" if demo else "Workspace session")
+        role = user.get("role", "unknown") if user else ("public demo" if demo else "workspace")
+        forwarded = request.headers.get("x-forwarded-for", "")
+        ip = forwarded.split(",", 1)[0].strip() if forwarded else (request.client.host if request.client else "unknown")
+        notify_owner_activity(email, ip, role, event)
+    except Exception:
+        logger.exception("Owner activity notification setup failed")
+
+
 class EmailCodeRequest(BaseModel):
     email: str
 
@@ -447,7 +469,7 @@ def health_probe() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.3",
+        "version": "2.3.4",
         "storage": "ready" if storage_ready else "unmounted",
         "llm": "direct-evidence",
     }
@@ -462,7 +484,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.3",
+        "version": "2.3.4",
         "session_active": has_session,
         "dataset_loaded": sm.filename if sm else None,
         "dataset_revision": sm.dataset_revision if sm else 0,
@@ -511,6 +533,7 @@ def auth_request_code(payload: EmailCodeRequest, request: Request) -> Dict[str, 
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    notify_owner_activity(email, client_ip, "account", "Email sign-in code requested")
     return {"success": True, "message": "If email delivery is available, a sign-in code is on its way."}
 
 
@@ -602,12 +625,14 @@ def update_account_role(payload: RoleUpdateRequest, request: Request):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not changed:
         raise HTTPException(status_code=404, detail="That account has not signed in yet.")
+    notify_owner_for_request(request, "Workspace account access changed")
     return {"success": True}
 
 
 @app.post("/api/auth/logout")
 def auth_logout(request: Request, response: Response) -> Dict[str, Any]:
     """Revoke this browser session and clear its cookies."""
+    notify_owner_for_request(request, "User signed out")
     logout_auth_session(request.cookies.get("ct_auth_session"))
     response.delete_cookie("ct_auth_session", path="/", httponly=True, secure=request.url.scheme == "https", samesite="lax")
     response.delete_cookie("ct_session_id", path="/", httponly=True, secure=request.url.scheme == "https", samesite="lax")
@@ -693,6 +718,7 @@ async def upload_csv(request: Request, file: UploadFile = File(...)) -> Dict[str
         findings, metrics = scan_dataset(df)
         score = calculate_quality_score(df, findings)
         math_findings = sm.get_math_findings()
+        notify_owner_for_request(request, "Dataset uploaded to workspace")
         return {
             "success": True,
             "filename": fname,
@@ -709,7 +735,7 @@ async def upload_csv(request: Request, file: UploadFile = File(...)) -> Dict[str
 
 
 @app.post("/api/dataset/demo")
-def load_demo() -> Dict[str, Any]:
+def load_demo(request: Request) -> Dict[str, Any]:
     df = load_demo_dataset()
     token = current_session_token.get()
     sm = SessionManager(df, filename="synthetic_quality_issues.csv")
@@ -718,6 +744,7 @@ def load_demo() -> Dict[str, Any]:
 
     findings, metrics = scan_dataset(df)
     score = calculate_quality_score(df, findings)
+    notify_owner_for_request(request, "Sample dataset loaded")
     return {
         "success": True,
         "filename": sm.filename,
@@ -731,7 +758,7 @@ def load_demo() -> Dict[str, Any]:
 
 
 @app.post("/api/dataset/math-demo")
-def load_math_demo(req: MathDemoRequest) -> Dict[str, Any]:
+def load_math_demo(req: MathDemoRequest, request: Request) -> Dict[str, Any]:
     try:
         df, meta = load_math_demo_dataset(fmt=req.format)
     except IngestionError as exc:
@@ -751,6 +778,7 @@ def load_math_demo(req: MathDemoRequest) -> Dict[str, Any]:
     findings, metrics = scan_dataset(df)
     score = calculate_quality_score(df, findings)
     math_findings = sm.get_math_findings()
+    notify_owner_for_request(request, "Sample financial dataset loaded")
     return {
         "success": True,
         "filename": sm.filename,
@@ -934,7 +962,7 @@ def get_proposals() -> List[Dict[str, Any]]:
 
 
 @app.post("/api/repair/apply")
-def apply_repair_proposal(req: ApplyRequest) -> Dict[str, Any]:
+def apply_repair_proposal(req: ApplyRequest, request: Request) -> Dict[str, Any]:
     sm = get_session()
     # Concurrency guard: check revision first
     if req.expected_revision != sm.dataset_revision:
@@ -966,6 +994,7 @@ def apply_repair_proposal(req: ApplyRequest) -> Dict[str, Any]:
     try:
         event = sm.apply_proposal(prop, expected_revision=req.expected_revision)
         persist_session(current_session_token.get(), sm)
+        notify_owner_for_request(request, "Repair approved and applied")
         return {
             "success": True,
             "event_id": event.event_id,
@@ -977,8 +1006,17 @@ def apply_repair_proposal(req: ApplyRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=409, detail=str(err))
 
 
+@app.post("/api/repair/reject-notice")
+def reject_repair_notice(req: RejectRepairRequest, request: Request) -> Dict[str, Any]:
+    """Record owner-visible notice when a user rejects a proposed repair."""
+    if not req.finding_id or len(req.finding_id) > 200:
+        raise HTTPException(status_code=400, detail="Invalid repair identifier.")
+    notify_owner_for_request(request, "Repair proposal rejected")
+    return {"success": True}
+
+
 @app.post("/api/repair/batch-apply")
-def batch_apply_repairs(req: BatchApplyRequest) -> Dict[str, Any]:
+def batch_apply_repairs(req: BatchApplyRequest, request: Request) -> Dict[str, Any]:
     sm = get_session()
     if req.expected_revision != sm.dataset_revision:
         raise HTTPException(
@@ -999,6 +1037,8 @@ def batch_apply_repairs(req: BatchApplyRequest) -> Dict[str, Any]:
         total_changed += event.items_changed
 
     persist_session(current_session_token.get(), sm)
+    if applied_events:
+        notify_owner_for_request(request, "Batch of repairs approved and applied")
     return {
         "success": True,
         "applied_events": applied_events,
@@ -1008,12 +1048,13 @@ def batch_apply_repairs(req: BatchApplyRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/audit/undo")
-def undo_action() -> Dict[str, Any]:
+def undo_action(request: Request) -> Dict[str, Any]:
     sm = get_session()
     event = sm.undo_last_action()
     if not event:
         raise HTTPException(status_code=400, detail="Undo stack is empty.")
     persist_session(current_session_token.get(), sm)
+    notify_owner_for_request(request, "Workspace change undone")
     return {
         "success": True,
         "event_id": event.event_id,
@@ -1023,10 +1064,11 @@ def undo_action() -> Dict[str, Any]:
 
 
 @app.post("/api/audit/reset")
-def reset_to_baseline() -> Dict[str, Any]:
+def reset_to_baseline(request: Request) -> Dict[str, Any]:
     sm = get_session()
     event = sm.reset_to_original()
     persist_session(current_session_token.get(), sm)
+    notify_owner_for_request(request, "Workspace reset to original dataset")
     return {
         "success": True,
         "event_id": event.event_id,
@@ -1082,11 +1124,12 @@ def compare_snapshots(req: CompareRequest) -> Dict[str, Any]:
 
 
 @app.post("/api/timemachine/restore")
-def restore_snapshot(req: RestoreRequest) -> Dict[str, Any]:
+def restore_snapshot(req: RestoreRequest, request: Request) -> Dict[str, Any]:
     sm = get_session()
     try:
         event = sm.restore_to_revision(req.target_revision)
         persist_session(current_session_token.get(), sm)
+        notify_owner_for_request(request, "Workspace revision restored")
         return {
             "success": True,
             "event_id": event.event_id,
@@ -1235,7 +1278,7 @@ def get_math_rules() -> List[Dict[str, Any]]:
 
 
 @app.post("/api/math/rules")
-def add_or_update_math_rule(req: MathRuleRequest) -> Dict[str, Any]:
+def add_or_update_math_rule(req: MathRuleRequest, request: Request) -> Dict[str, Any]:
     sm = get_session()
     existing = [r for r in getattr(sm, "custom_math_rules", []) if r.rule_id != req.rule_id]
     new_rule = MathRuleConfig(
@@ -1259,6 +1302,7 @@ def add_or_update_math_rule(req: MathRuleRequest) -> Dict[str, Any]:
     existing.append(new_rule)
     sm.custom_math_rules = existing
     persist_session(current_session_token.get(), sm)
+    notify_owner_for_request(request, "Workspace validation rule added or updated")
     findings = sm.get_math_findings()
     return {
         "success": True,
@@ -1269,10 +1313,11 @@ def add_or_update_math_rule(req: MathRuleRequest) -> Dict[str, Any]:
 
 
 @app.delete("/api/math/rules/{rule_id}")
-def delete_math_rule(rule_id: str) -> Dict[str, Any]:
+def delete_math_rule(rule_id: str, request: Request) -> Dict[str, Any]:
     sm = get_session()
     sm.custom_math_rules = [r for r in getattr(sm, "custom_math_rules", []) if r.rule_id != rule_id]
     persist_session(current_session_token.get(), sm)
+    notify_owner_for_request(request, "Workspace validation rule removed")
     findings = sm.get_math_findings()
     return {
         "success": True,
@@ -1343,9 +1388,10 @@ def rag_ask(req: RAGAskRequest) -> Dict[str, Any]:
 # ── File Download Exports ───────────────────────────────────────────────────
 
 @app.get("/api/export/cleaned")
-def download_cleaned_csv():
+def download_cleaned_csv(request: Request):
     sm = get_session()
     csv_bytes = export_cleaned_csv(sm.working_df, escape_formulas=True)
+    notify_owner_for_request(request, "Cleaned dataset exported")
     return Response(
         content=csv_bytes,
         media_type="text/csv",
@@ -1354,10 +1400,11 @@ def download_cleaned_csv():
 
 
 @app.get("/api/export/findings")
-def download_findings():
+def download_findings(request: Request):
     sm = get_session()
     findings, _ = scan_dataset(sm.working_df)
     csv_bytes = export_findings_report(findings)
+    notify_owner_for_request(request, "Quality findings exported")
     return Response(
         content=csv_bytes,
         media_type="text/csv",
@@ -1366,9 +1413,10 @@ def download_findings():
 
 
 @app.get("/api/export/audit")
-def download_audit():
+def download_audit(request: Request):
     sm = get_session()
     csv_bytes = export_audit_log(sm.audit_events)
+    notify_owner_for_request(request, "Audit history exported")
     return Response(
         content=csv_bytes,
         media_type="text/csv",
@@ -1377,7 +1425,7 @@ def download_audit():
 
 
 @app.get("/api/export/passport")
-def download_passport_json():
+def download_passport_json(request: Request):
     sm = get_session()
     findings, _ = scan_dataset(sm.working_df)
     score = calculate_quality_score(sm.working_df, findings)
@@ -1404,6 +1452,7 @@ def download_passport_json():
         "unresolved_findings": passport.unresolved_findings,
         "integrity_signature": passport.integrity_signature,
     }
+    notify_owner_for_request(request, "Data passport exported")
     return Response(
         content=json.dumps(passport_dict, indent=2).encode("utf-8"),
         media_type="application/json",
@@ -1502,7 +1551,7 @@ def get_comparison_summary() -> Dict[str, Any]:
 
 
 @app.get("/api/export/report")
-def download_executive_report(format: str = Query("markdown", pattern="^(markdown|json|html)$"), download: bool = False):
+def download_executive_report(request: Request, format: str = Query("markdown", pattern="^(markdown|json|html)$"), download: bool = False):
     """Feature D: Generates and exports the comprehensive data quality assessment report."""
     sm = get_session()
     findings, _ = scan_dataset(sm.working_df)
@@ -1543,6 +1592,7 @@ def download_executive_report(format: str = Query("markdown", pattern="^(markdow
         passport_id=passport.passport_id,
         revision=sm.dataset_revision,
     )
+    notify_owner_for_request(request, "Executive quality report exported")
 
     if format == "json":
         return {

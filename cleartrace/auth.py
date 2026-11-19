@@ -259,6 +259,19 @@ def _record_login_alert(email: str, ip: str) -> None:
         logger.exception("Owner sign-in notification delivery failed")
 
 
+def notify_owner_activity(email: str, ip: str, role: str, event: str) -> None:
+    """Send a content-free owner notice for a meaningful account/workspace action.
+
+    Callers must pass a fixed event label, never user supplied text. Delivery is
+    best-effort so an SMTP outage cannot interrupt the user's workspace action.
+    """
+    try:
+        fingerprint = _digest((ip or "unknown")[:128], b"ip:")
+        _send_security_alert(email or "Workspace user", fingerprint, role or "unknown", event)
+    except Exception:
+        logger.exception("Owner activity notification delivery failed")
+
+
 def google_authorization_url(origin: str) -> tuple[str, str]:
     client_id = os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID", "").strip()
     if not client_id or not os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET", "").strip():

@@ -1928,7 +1928,13 @@ async function batchApproveAll() {
   } catch (e) { /* Handled */ }
 }
 
-function rejectRepair(findingId) {
+async function rejectRepair(findingId) {
+  try {
+    await api('/api/repair/reject-notice', {
+      method: 'POST',
+      body: JSON.stringify({ finding_id: findingId })
+    });
+  } catch (e) { /* Keep the review interaction available if notifications are offline. */ }
   STATE.proposals = STATE.proposals.filter(p => p.finding_id !== findingId);
   showToast('Repair proposal rejected. Working copy unchanged.', 'info');
   renderRepairStudio();

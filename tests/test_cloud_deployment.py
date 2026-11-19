@@ -184,7 +184,24 @@ def test_owner_security_alerts_cover_login_and_repeated_bad_codes(monkeypatch):
     invalid = "000000" if sent["code"] != "000000" else "000001"
     for _ in range(auth_module.OTP_MAX_ATTEMPTS):
         assert client.post("/api/auth/verify", json={"email": "new-account@example.com", "code": invalid}).status_code == 401
-    assert alerts == ["successful sign-in", "repeated invalid sign-in code attempts"]
+    assert alerts == [
+        "Email sign-in code requested",
+        "successful sign-in",
+        "Email sign-in code requested",
+        "repeated invalid sign-in code attempts",
+    ]
+
+
+def test_owner_activity_notifications_are_best_effort(monkeypatch):
+    import cleartrace.auth as auth_module
+    captured = []
+    monkeypatch.setattr(auth_module, "_send_security_alert", lambda *args: captured.append(args))
+    auth_module.notify_owner_activity("analyst@example.com", "192.0.2.10", "analyst", "Dataset uploaded to workspace")
+    assert captured
+    assert captured[0][0] == "analyst@example.com"
+    assert captured[0][2:] == ("analyst", "Dataset uploaded to workspace")
+    monkeypatch.setattr(auth_module, "_send_security_alert", lambda *args: (_ for _ in ()).throw(RuntimeError("offline")))
+    auth_module.notify_owner_activity("analyst@example.com", "192.0.2.10", "analyst", "Dataset uploaded to workspace")
 
 
 def test_upload_extension_validation():
