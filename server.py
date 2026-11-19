@@ -11,7 +11,7 @@ import json
 from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -41,7 +41,9 @@ from cleartrace.persistence import (
 )
 from cleartrace.auth import (
     request_code, verify_code, get_user, logout as logout_auth_session,
-    create_public_demo, get_public_demo,
+    create_public_demo, get_public_demo, get_role, set_user_role,
+    google_authorization_url, consume_oauth_state, exchange_google_code,
+    verify_google_id_token, create_google_session,
 )
 
 import secrets
@@ -56,7 +58,7 @@ logger = logging.getLogger("cleartrace.server")
 
 app = FastAPI(
     title="ClearTrace API",
-    version="2.2.0",
+    version="2.3.0",
     description="Autonomous Data Quality and Traceable Repair Engine",
 )
 
@@ -152,6 +154,7 @@ _CSRF_PROTECTED_PATHS: set = {
     "/api/auth/verify",
     "/api/auth/logout",
     "/api/auth/public-demo",
+    "/api/auth/role",
 }
 _PUBLIC_DEMO_MUTATION_PATHS: set = {
     "/api/dataset/demo", "/api/dataset/math-demo",
@@ -160,6 +163,11 @@ _PUBLIC_DEMO_MUTATION_PATHS: set = {
     "/api/timemachine/compare", "/api/timemachine/restore",
     "/api/math/validate", "/api/math/rules",
     "/api/rag/search", "/api/rag/ask",
+}
+_ROLE_PROTECTED_MUTATIONS: set = {
+    "/api/dataset/upload", "/api/dataset/demo", "/api/dataset/math-demo",
+    "/api/repair/apply", "/api/repair/batch-apply", "/api/audit/undo",
+    "/api/audit/reset", "/api/timemachine/restore", "/api/math/rules",
 }
 
 
@@ -208,6 +216,7 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
         auth_public_paths = {
             "/api/health", "/api/auth/status", "/api/auth/request-code",
             "/api/auth/verify", "/api/auth/logout", "/api/auth/public-demo",
+            "/api/auth/google/start", "/api/auth/google/callback", "/api/auth/role",
         }
         anonymous_auth_request = auth_enabled and path in auth_public_paths and not auth_user and not public_demo
         if auth_enabled and path.startswith("/api/"):
@@ -217,6 +226,9 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
             if public_demo and request.method not in ("GET", "HEAD", "OPTIONS") and path not in _PUBLIC_DEMO_MUTATION_PATHS:
                 from fastapi.responses import JSONResponse as _JSONResponse
                 return _JSONResponse(status_code=403, content={"detail": "Uploads are disabled in the public sample workspace. Sign in by email to use your own files."})
+            protected_write = path in _ROLE_PROTECTED_MUTATIONS or path.startswith("/api/math/rules/")
+            if auth_user and request.method in ("POST", "PUT", "PATCH", "DELETE") and protected_write and auth_user.get("role") == "viewer":
+                return JSONResponse(status_code=403, content={"detail": "Your workspace role is read-only. Ask an owner or admin to change your role."})
         cookie_token = request.cookies.get("ct_session_id")
         header_token = request.headers.get("X-Session-ID")
 
@@ -265,7 +277,8 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
             # 1. Reject cross-site requests signaled by modern browsers (Sec-Fetch-Site: cross-site)
             # 2. Reject requests with untrusted Origin header
             # 3. Reject requests with untrusted Referer header
-            if request.method in ("POST", "PUT", "DELETE") and request.url.path in _CSRF_PROTECTED_PATHS:
+            csrf_protected = request.url.path in _CSRF_PROTECTED_PATHS or request.url.path.startswith("/api/math/rules/")
+            if request.method in ("POST", "PUT", "DELETE") and csrf_protected:
                 sec_fetch_site = request.headers.get("sec-fetch-site", "").lower()
                 if sec_fetch_site == "cross-site":
                     from fastapi.responses import JSONResponse as _JSONResponse
@@ -434,7 +447,7 @@ def health_probe() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "storage": "ready" if storage_ready else "unmounted",
         "llm": "direct-evidence",
     }
@@ -449,7 +462,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "session_active": has_session,
         "dataset_loaded": sm.filename if sm else None,
         "dataset_revision": sm.dataset_revision if sm else 0,
@@ -469,6 +482,10 @@ def auth_status(request: Request) -> Dict[str, Any]:
         "is_authenticated": (user is not None) if required else True,
         "is_public_demo": public_demo is not None,
         "email": user["email"] if user else None,
+        "role": user["role"] if user else None,
+        "google_sign_in_enabled": bool(os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID") and os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET")),
+        "smtp_delivery_enabled": bool(os.environ.get("CLEARTRACE_SMTP_USERNAME") and os.environ.get("CLEARTRACE_SMTP_PASSWORD") and (os.environ.get("CLEARTRACE_SMTP_FROM") or os.environ.get("CLEARTRACE_SMTP_USERNAME"))),
+        "owner_alerts_enabled": bool((os.environ.get("CLEARTRACE_OWNER_EMAIL") or os.environ.get("CLEARTRACE_SMTP_USERNAME")) and os.environ.get("CLEARTRACE_SMTP_USERNAME") and os.environ.get("CLEARTRACE_SMTP_PASSWORD")),
     }
 
 
@@ -496,7 +513,9 @@ def auth_request_code(payload: EmailCodeRequest, request: Request) -> Dict[str, 
 def auth_verify_code(payload: VerifyCodeRequest, request: Request, response: Response) -> Dict[str, Any]:
     """Consume a valid one-time code and establish an account workspace session."""
     try:
-        session_token, workspace_id = verify_code(payload.email, payload.code)
+        client_ip = request.headers.get("x-forwarded-for", "")
+        client_ip = client_ip.split(",", 1)[0].strip() if client_ip else (request.client.host if request.client else "unknown")
+        session_token, workspace_id = verify_code(payload.email, payload.code, client_ip)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
@@ -509,6 +528,74 @@ def auth_verify_code(payload: VerifyCodeRequest, request: Request, response: Res
         samesite="lax", max_age=30 * 86400, path="/",
     )
     return {"success": True, "message": "Signed in successfully."}
+
+
+@app.get("/api/auth/google/start")
+def google_sign_in_start(request: Request, response: Response):
+    """Begin Google OpenID Connect login using single-use server-stored state."""
+    try:
+        base = os.environ.get("CLEARTRACE_PUBLIC_URL", str(request.base_url)).rstrip("/")
+        if not base.startswith("https://") and os.environ.get("CLEARTRACE_AUTH_ENABLED", "true").lower() not in ("false", "0", "no"):
+            raise RuntimeError("Set CLEARTRACE_PUBLIC_URL to the public HTTPS address before enabling Google sign-in.")
+        url, state = google_authorization_url(base)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response = RedirectResponse(url, status_code=302)
+    response.set_cookie("ct_google_state", state, httponly=True, secure=secure, samesite="lax", max_age=600, path="/api/auth/google")
+    return response
+
+
+@app.get("/api/auth/google/callback")
+def google_sign_in_callback(request: Request):
+    """Validate Google state, token signature and claims, then set the session cookie."""
+    state = request.query_params.get("state", "")
+    code = request.query_params.get("code", "")
+    redirect = RedirectResponse("/", status_code=303)
+    redirect.delete_cookie("ct_google_state", path="/api/auth/google")
+    if not code or not secrets.compare_digest(state, request.cookies.get("ct_google_state", "")) or not consume_oauth_state(state):
+        redirect = RedirectResponse("/?auth_error=google", status_code=303)
+        redirect.delete_cookie("ct_google_state", path="/api/auth/google")
+        return redirect
+    try:
+        base = os.environ.get("CLEARTRACE_PUBLIC_URL", str(request.base_url)).rstrip("/")
+        claims_email = verify_google_id_token(exchange_google_code(code, base + "/api/auth/google/callback"))
+        ip = request.headers.get("x-forwarded-for", "")
+        ip = ip.split(",", 1)[0].strip() if ip else (request.client.host if request.client else "unknown")
+        token, workspace_id = create_google_session(claims_email)
+        # Reuse login alert pipeline without storing the network address.
+        from cleartrace.auth import _record_login_alert
+        _record_login_alert(claims_email, ip)
+        secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        redirect.set_cookie("ct_auth_session", token, httponly=True, secure=secure, samesite="lax", max_age=30 * 86400, path="/")
+        redirect.set_cookie("ct_session_id", workspace_id, httponly=True, secure=secure, samesite="lax", max_age=30 * 86400, path="/")
+    except Exception:
+        logger.exception("Google sign-in failed")
+        redirect = RedirectResponse("/?auth_error=google", status_code=303)
+        redirect.delete_cookie("ct_google_state", path="/api/auth/google")
+    return redirect
+
+
+class RoleUpdateRequest(BaseModel):
+    email: str
+    role: str
+
+
+@app.post("/api/auth/role")
+def update_account_role(payload: RoleUpdateRequest, request: Request):
+    """Owner-only account role assignment for the current deployment workspace."""
+    actor = get_user(request.cookies.get("ct_auth_session"))
+    if not actor or actor.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Only the configured ClearTrace owner can assign account roles.")
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", payload.email) or len(payload.email) > 254:
+        raise HTTPException(status_code=400, detail="Enter a valid account email.")
+    try:
+        changed = set_user_role(payload.email, payload.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not changed:
+        raise HTTPException(status_code=404, detail="That account has not signed in yet.")
+    return {"success": True}
 
 
 @app.post("/api/auth/logout")

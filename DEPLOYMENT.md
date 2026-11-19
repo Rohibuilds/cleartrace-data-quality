@@ -156,6 +156,11 @@ CLEARTRACE_SMTP_PORT=587
 CLEARTRACE_SMTP_USERNAME=<YOUR_GMAIL_ADDRESS>
 CLEARTRACE_SMTP_PASSWORD=<YOUR_GMAIL_APP_PASSWORD>
 CLEARTRACE_SMTP_FROM=<YOUR_GMAIL_ADDRESS>
+CLEARTRACE_OWNER_EMAIL=<OWNER_ALERT_AND_INITIAL_OWNER_EMAIL>
+# Optional Google OIDC. Create a Web OAuth client in Google Cloud and register the callback below.
+CLEARTRACE_GOOGLE_CLIENT_ID=<YOUR_GOOGLE_OAUTH_CLIENT_ID>
+CLEARTRACE_GOOGLE_CLIENT_SECRET=<YOUR_GOOGLE_OAUTH_CLIENT_SECRET>
+CLEARTRACE_PUBLIC_URL=https://cleartrace-web-production.up.railway.app
 # Optional: comma-separated addresses allowed to sign in. Leave unset for judge self-service.
 # CLEARTRACE_AUTH_ALLOWED_EMAILS=judge1@example.com,judge2@example.com
 
@@ -165,6 +170,10 @@ CLEARTRACE_MAX_UPLOAD_MB=15
 
 > [!IMPORTANT]
 > **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Gmail app password in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. The public judge preview does not require email configuration.
+
+With SMTP configured, the owner receives sign-in notices and alerts after five failed code attempts. Google login appears only when both Google client variables are configured. In Google Cloud, add `https://cleartrace-web-production.up.railway.app/api/auth/google/callback` as an authorized redirect URI (replace the host if your public URL differs). Never place the client secret or app password in Git or chat.
+
+The owner can assign `viewer`, `analyst`, or `admin` roles in Settings to an account that has signed in at least once. A viewer is read-only for dataset uploads, repairs, reset/restore, and math rule edits. Accounts continue to have separate private workspaces; these roles do not create shared organization data, SAML, or SCIM.
 
 #### Step 3: Attach Railway Persistent Volume
 1. In the service view, click **+ Add Volume** (or go to **Settings** $\rightarrow$ **Volumes**).

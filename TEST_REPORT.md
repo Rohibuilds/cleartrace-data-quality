@@ -2,12 +2,12 @@
 
 **Verification date:** 20 November 2026 (Asia/Kolkata)
 
-**Source revision tested:** `84fcb14`
+**Source revision tested:** local changes on top of `af5f689` (push/deploy verification pending)
 
 **Runtime:** Python 3.9.6, Pytest 8.4.2, Node 26.13.1
 
-**Automated result:** 76 passed, 0 failed, 0 skipped (1.38 seconds)
-**Static security scan:** Bandit found 0 reported issues in 4,727 lines across `server.py` and `cleartrace/`.
+**Automated result:** 79 passed, 0 failed, 0 skipped (1.69 seconds)
+**Static security scan:** Bandit found 0 enabled issues in `server.py` and `cleartrace/auth.py`.
 
 ## Test suite breakdown
 
@@ -16,12 +16,12 @@
 | `tests/test_adversarial.py` | 9 | Pass |
 | `tests/test_api.py` | 13 | Pass |
 | `tests/test_cleartrace.py` | 8 | Pass |
-| `tests/test_cloud_deployment.py` | 9 | Pass |
+| `tests/test_cloud_deployment.py` | 12 | Pass |
 | `tests/test_cloudflare_tunnel_proxy.py` | 8 | Pass |
 | `tests/test_math_intelligence_advanced.py` | 8 | Pass |
 | `tests/test_mentor_round.py` | 12 | Pass |
 | `tests/test_persistence.py` | 9 | Pass |
-| **Total** | **76** | **76 passed** |
+| **Total** | **79** | **79 passed** |
 
 The shared `tests/conftest.py` selects explicit local open mode for tests that exercise unrelated API behavior. `tests/test_cloud_deployment.py` separately switches auth on for email OTP and judge-workspace checks. The configured production default remains authentication required.
 
@@ -31,6 +31,7 @@ The shared `tests/conftest.py` selects explicit local open mode for tests that e
 - Session persistence encryption, rehydration, tamper detection, session separation, upload bounds, and injection handling.
 - CSRF and reverse-proxy handling, cache policy, API response behavior, and session-isolation guards.
 - Email-code flow with SMTP mocked in tests, plus unauthorized API blocking and isolated synthetic judge preview behavior.
+- Google OIDC state/callback flow with provider exchange mocked; owner role assignment, viewer write restrictions, and owner-alert triggers are tested with mail mocked.
 - Service worker cache version and PWA manifest headers.
 
 ## Production verification
@@ -53,12 +54,13 @@ The deployed UI was opened and the no-sign-in judge option was exercised in a br
 
 Bandit reported no enabled issues. One `B104` check is explicitly suppressed at the server's `0.0.0.0` bind, required for the container to accept Railway traffic. The report does not claim an independent security audit or formal compliance certification.
 
-At verification time the Railway configuration included the Gmail sender and SMTP host/port, but **did not include `CLEARTRACE_SMTP_PASSWORD`**. The shared `CLEARTRACE_ACCESS_TOKEN` setting was absent. Therefore:
+At the prior Railway verification the service included the Gmail sender and SMTP host/port, but **did not include `CLEARTRACE_SMTP_PASSWORD`**. The shared `CLEARTRACE_ACCESS_TOKEN` setting was absent. For this feature revision, the app code adds email OTP, owner sign-in and repeated-failure alerts, owner-managed account roles, and optional Google OIDC. Railway deploy and real provider checks remain pending because access to Railway's API is currently failing DNS resolution; the new app code is not yet confirmed live. No password or Google OAuth credentials are available in the workspace. Therefore:
 
 - The no-sign-in judge preview is available and verified.
-- Personal email-code delivery is **not verified** and will not work until the Gmail app password is entered in Railway Variables and the new variable revision is deployed.
-- SMTP was mocked for unit tests; no real email was sent during the test run.
-- Account login-alert notifications, organization roles, and enterprise identity federation are not covered by this release.
+- Personal email-code delivery and owner alerts are **not verified** and will not work until `CLEARTRACE_SMTP_PASSWORD` (and `CLEARTRACE_OWNER_EMAIL`) are configured in Railway and a live email is confirmed.
+- SMTP and Google token exchange were mocked for unit tests; no real email or Google OAuth sign-in was performed.
+- Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI. It is not SAML/SCIM enterprise provisioning.
+- Roles operate on accounts in this deployment; personal workspaces remain isolated. Shared organization workspaces and team data access are not implemented.
 
 ## Reproduce locally
 

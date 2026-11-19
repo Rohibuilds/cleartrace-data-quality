@@ -169,6 +169,11 @@ function showClearTraceLogin() {
       <p id="ct-login-error" role="alert"
         style="color:#ffaaaa;min-height:20px"></p>
     </form>
+    <button id="ct-google-login" type="button" hidden
+      style="margin-top:8px;width:100%;padding:13px;border:1px solid #506589;border-radius:10px;
+      background:#fff;color:#202938;font-size:15px;font-weight:700">
+      Continue with Google
+    </button>
     <div style="border-top:1px solid #384765;margin-top:12px;padding-top:16px">
       <button id="ct-public-demo" type="button"
         style="width:100%;padding:13px;border:1px solid #506589;border-radius:10px;
@@ -192,10 +197,17 @@ function showClearTraceLogin() {
   const changeEmailButton = dialog.querySelector('#ct-change-email');
   const button = dialog.querySelector('#ct-login-button');
   const demoButton = dialog.querySelector('#ct-public-demo');
+  const googleButton = dialog.querySelector('#ct-google-login');
   const error = dialog.querySelector('#ct-login-error');
   let codeRequested = false;
 
   emailInput.focus();
+
+  fetch('/api/auth/status', { credentials: 'same-origin', cache: 'no-store' })
+    .then(response => response.json())
+    .then(status => { googleButton.hidden = !status.google_sign_in_enabled; })
+    .catch(() => {});
+  googleButton.addEventListener('click', () => { window.location.assign('/api/auth/google/start'); });
 
   changeEmailButton.addEventListener('click', () => {
     codeRequested = false;
@@ -1314,6 +1326,18 @@ function renderSettings() {
       </div>
 
       <div style="max-width:560px;margin-top:10px;">
+        <div id="ct-account-security" style="padding:14px 0;border-bottom:1px solid var(--ct-navy-100);">
+          <div style="font-weight:700;font-size:0.9rem;">Account security</div>
+          <div id="ct-account-summary" style="font-size:0.8rem;color:var(--ct-navy-500);margin-top:6px;">Checking your verified account…</div>
+          <form id="ct-role-form" hidden style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px;">
+            <input id="ct-role-email" type="email" maxlength="254" required placeholder="Existing account email" aria-label="Existing account email" style="min-width:0;padding:9px 10px;border:1px solid var(--ct-navy-200);border-radius:7px;background:var(--ct-surface);color:var(--ct-navy-900);">
+            <select id="ct-role-value" aria-label="Account role" style="padding:9px 10px;border:1px solid var(--ct-navy-200);border-radius:7px;background:var(--ct-surface);color:var(--ct-navy-900);"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select>
+            <button class="btn btn-secondary btn-sm" type="submit">Assign</button>
+          </form>
+          <div id="ct-role-result" role="status" style="font-size:0.78rem;margin-top:6px;"></div>
+          <div style="font-size:0.73rem;color:var(--ct-navy-500);margin-top:8px;line-height:1.5;">Roles apply to account permissions in this deployment. ClearTrace currently keeps each personal dataset workspace private; assigning a role does not share its data.</div>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--ct-navy-100);">
           <div>
             <div style="font-weight:600;font-size:0.9rem;">Interface Theme</div>
@@ -1359,6 +1383,36 @@ function renderSettings() {
       </div>
     </div>
   `;
+
+  fetch('/api/auth/status', { credentials: 'same-origin', cache: 'no-store' })
+    .then(response => response.json())
+    .then(status => {
+      const summary = document.getElementById('ct-account-summary');
+      if (!summary) return;
+      summary.textContent = status.is_authenticated
+        ? `${status.email || 'Verified account'} · ${status.role || 'member'} role · Owner alerts ${status.owner_alerts_enabled ? 'on' : 'not configured'}${status.google_sign_in_enabled ? ' · Google sign-in on' : ''}`
+        : (status.is_public_demo ? 'Temporary sample workspace · no personal account signed in' : 'No signed-in account');
+      if (status.role === 'owner') {
+        const form = document.getElementById('ct-role-form');
+        form.hidden = false;
+        form.style.display = 'grid';
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          const result = document.getElementById('ct-role-result');
+          result.textContent = 'Saving…';
+          try {
+            const response = await api('/api/auth/role', { method: 'POST', body: JSON.stringify({
+              email: document.getElementById('ct-role-email').value.trim(),
+              role: document.getElementById('ct-role-value').value
+            }) });
+            result.textContent = response.success ? 'Role updated.' : (response.detail || 'Could not update role.');
+          } catch (error) { result.textContent = error.message || 'Could not update role.'; }
+        });
+      }
+    }).catch(() => {
+      const summary = document.getElementById('ct-account-summary');
+      if (summary) summary.textContent = 'Account security status is temporarily unavailable.';
+    });
 }
 
 function triggerPwaInstall() {

@@ -12,6 +12,9 @@ import smtplib
 import sqlite3
 import ssl
 import time
+import json
+import urllib.parse
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
 from cryptography.fernet import Fernet
@@ -70,6 +73,17 @@ def _connect() -> sqlite3.Connection:
             expires_at INTEGER NOT NULL
         );
     """)
+    columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+    if "role" not in columns:
+        db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'analyst'")
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS login_events (
+            user_key TEXT NOT NULL, ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS oauth_states (
+            state_hash TEXT PRIMARY KEY, expires_at INTEGER NOT NULL
+        );
+    """)
     return db
 
 
@@ -121,6 +135,178 @@ def _allowed(email: str) -> bool:
         return True
     allowed = {item.strip().lower() for item in configured.split(",") if item.strip()}
     return email.lower() in allowed
+
+
+def _owner_email() -> str:
+    return os.environ.get("CLEARTRACE_OWNER_EMAIL", os.environ.get("CLEARTRACE_SMTP_USERNAME", "")).strip().lower()
+
+
+def _default_role(email: str) -> str:
+    owner = _owner_email()
+    return "owner" if owner and email.lower() == owner else "analyst"
+
+
+def get_role(session_token: str | None) -> str | None:
+    user = get_user(session_token)
+    return user.get("role") if user else None
+
+
+def set_user_role(email: str, role: str) -> bool:
+    if role not in {"owner", "admin", "analyst", "viewer"}:
+        raise ValueError("Role must be owner, admin, analyst, or viewer.")
+    normalized_email = email.strip().lower()
+    if role == "owner" and normalized_email != _owner_email():
+        raise ValueError("The deployment owner is fixed by CLEARTRACE_OWNER_EMAIL and cannot be reassigned.")
+    db = _connect()
+    try:
+        cur = db.execute("UPDATE users SET role=? WHERE user_key=?", (role, _email_key(normalized_email)))
+        return cur.rowcount == 1
+    finally:
+        db.close()
+
+
+def _send_security_alert(email: str, fingerprint: str, role: str, event: str = "successful sign-in") -> None:
+    recipient = _owner_email()
+    if not recipient:
+        return
+    host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
+    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
+    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
+    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
+    if not (username and password and sender):
+        raise RuntimeError("SMTP is not configured for security alerts.")
+    message = EmailMessage()
+    message["Subject"] = "ClearTrace account security activity"
+    message["From"], message["To"] = sender, recipient
+    message.set_content(
+        f"ClearTrace detected {event}.\n\n"
+        f"Account: {email}\nRole: {role}\nTime (UTC): {datetime.now(timezone.utc).isoformat()}\n"
+        f"Network fingerprint: {fingerprint[:12]}\n\n"
+        "If this was not you, secure the account email and contact the ClearTrace owner."
+    )
+    with smtplib.SMTP(host, port, timeout=15) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.ehlo()
+        smtp.login(username, password)
+        smtp.send_message(message)
+
+
+def _record_login_alert(email: str, ip: str) -> None:
+    user_key = _email_key(email)
+    fingerprint = _digest(ip[:128], b"ip:")
+    db = _connect()
+    try:
+        db.execute("DELETE FROM login_events WHERE created_at<?", (int(time.time()) - 180 * 86400,))
+        db.execute("INSERT INTO login_events(user_key,ip_hash,created_at) VALUES(?,?,?)", (user_key, fingerprint, int(time.time())))
+        row = db.execute("SELECT role FROM users WHERE user_key=?", (user_key,)).fetchone()
+        role = row["role"] if row else _default_role(email)
+    finally:
+        db.close()
+    try:
+        _send_security_alert(email, fingerprint, role)
+    except Exception:
+        logger.exception("Owner sign-in notification delivery failed")
+
+
+def google_authorization_url(origin: str) -> tuple[str, str]:
+    client_id = os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID", "").strip()
+    if not client_id or not os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET", "").strip():
+        raise RuntimeError("Google sign-in is not configured. Add both Google OAuth credentials in Railway.")
+    state = secrets.token_urlsafe(32)
+    db = _connect()
+    try:
+        now = int(time.time())
+        db.execute("DELETE FROM oauth_states WHERE expires_at<?", (now,))
+        db.execute("INSERT INTO oauth_states(state_hash,expires_at) VALUES(?,?)", (_digest(state, b"oauth-state:"), now + 600))
+    finally:
+        db.close()
+    redirect_uri = origin.rstrip("/") + "/api/auth/google/callback"
+    query = urllib.parse.urlencode({"client_id": client_id, "redirect_uri": redirect_uri,
+        "response_type": "code", "scope": "openid email profile", "state": state, "prompt": "select_account"})
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + query, state
+
+
+def consume_oauth_state(state: str) -> bool:
+    if not state or len(state) > 200:
+        return False
+    db = _connect()
+    try:
+        digest = _digest(state, b"oauth-state:")
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT expires_at FROM oauth_states WHERE state_hash=?", (digest,)).fetchone()
+        db.execute("DELETE FROM oauth_states WHERE state_hash=?", (digest,))
+        db.commit()
+        return bool(row and row["expires_at"] > int(time.time()))
+    finally:
+        db.close()
+
+
+def exchange_google_code(code: str, redirect_uri: str) -> str:
+    import requests
+    data = urllib.parse.urlencode({"code": code, "client_id": os.environ["CLEARTRACE_GOOGLE_CLIENT_ID"],
+        "client_secret": os.environ["CLEARTRACE_GOOGLE_CLIENT_SECRET"], "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code"}).encode()
+    response = requests.post("https://oauth2.googleapis.com/token", data=data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=12)
+    response.raise_for_status()
+    return response.json()["id_token"]
+
+
+def verify_google_id_token(token: str) -> str:
+    """Verify Google's RS256 signature and OIDC claims before using its email."""
+    import base64
+    import requests
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import padding, rsa
+    def dec(part: str) -> bytes:
+        return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+    parts = token.split(".")
+    if len(parts) != 3 or len(token) > 12000:
+        raise ValueError("Invalid identity response.")
+    header, claims = json.loads(dec(parts[0])), json.loads(dec(parts[1]))
+    if header.get("alg") != "RS256" or not header.get("kid"):
+        raise ValueError("Unsupported identity signature.")
+    response = requests.get("https://www.googleapis.com/oauth2/v3/certs", headers={"Accept": "application/json"}, timeout=10)
+    response.raise_for_status()
+    keys = response.json().get("keys", [])
+    jwk = next((k for k in keys if k.get("kid") == header["kid"] and k.get("kty") == "RSA"), None)
+    if not jwk:
+        raise ValueError("Identity signing key is unavailable.")
+    key = rsa.RSAPublicNumbers(int.from_bytes(dec(jwk["e"]), "big"), int.from_bytes(dec(jwk["n"]), "big")).public_key()
+    key.verify(dec(parts[2]), (parts[0] + "." + parts[1]).encode("ascii"), padding.PKCS1v15(), hashes.SHA256())
+    now = int(time.time())
+    if claims.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise ValueError("Untrusted identity issuer.")
+    if claims.get("exp", 0) <= now or claims.get("iat", now + 1) > now + 60:
+        raise ValueError("Identity response expired.")
+    if claims.get("aud") != os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID"):
+        raise ValueError("Identity response was issued for another application.")
+    if claims.get("email_verified") is not True or not claims.get("email"):
+        raise ValueError("A verified Google email is required.")
+    return str(claims["email"]).strip().lower()
+
+
+def create_google_session(email: str) -> tuple[str, str]:
+    email = email.strip().lower()
+    if not _allowed(email):
+        raise ValueError("This account is not enabled for ClearTrace.")
+    now, user_key = int(time.time()), _email_key(email)
+    db = _connect()
+    try:
+        user = db.execute("SELECT workspace_id FROM users WHERE user_key=?", (user_key,)).fetchone()
+        workspace_id = user["workspace_id"] if user else secrets.token_hex(24)
+        if not user:
+            db.execute("INSERT INTO users(user_key,email_ciphertext,workspace_id,created_at,role) VALUES(?,?,?,?,?)",
+                (user_key, _encrypt_email(email), workspace_id, now, _default_role(email)))
+        token = secrets.token_urlsafe(32)
+        db.execute("INSERT INTO auth_sessions(token_hash,user_key,expires_at,created_at) VALUES(?,?,?,?)",
+            (_digest(token, b"session:"), user_key, now + SESSION_TTL_SECONDS, now))
+        db.commit()
+        return token, workspace_id
+    finally:
+        db.close()
 
 
 def _send_otp(email: str, code: str) -> None:
@@ -193,7 +379,7 @@ def request_code(email: str, ip: str) -> None:
         db.close()
 
 
-def verify_code(email: str, code: str) -> tuple[str, str]:
+def verify_code(email: str, code: str, ip: str = "unknown") -> tuple[str, str]:
     """Consume a valid code once; return an opaque auth session and stable workspace id."""
     email = email.strip().lower()
     user_key = _email_key(email)
@@ -218,6 +404,11 @@ def verify_code(email: str, code: str) -> tuple[str, str]:
             else:
                 db.execute("UPDATE otp_challenges SET attempts=? WHERE user_key=?", (attempts, user_key))
             db.commit()
+            if attempts >= OTP_MAX_ATTEMPTS:
+                try:
+                    _send_security_alert(email, _digest(ip[:128], b"ip:"), _default_role(email), "repeated invalid sign-in code attempts")
+                except Exception:
+                    logger.exception("Owner failed-login notification delivery failed")
             raise ValueError("That code is invalid or expired. Request a new one.")
         db.execute("DELETE FROM otp_challenges WHERE user_key=?", (user_key,))
         user = db.execute("SELECT workspace_id FROM users WHERE user_key=?", (user_key,)).fetchone()
@@ -226,8 +417,8 @@ def verify_code(email: str, code: str) -> tuple[str, str]:
         else:
             workspace_id = secrets.token_hex(24)
             db.execute(
-                "INSERT INTO users(user_key,email_ciphertext,workspace_id,created_at) VALUES(?,?,?,?)",
-                (user_key, _encrypt_email(email), workspace_id, now),
+                "INSERT INTO users(user_key,email_ciphertext,workspace_id,created_at,role) VALUES(?,?,?,?,?)",
+                (user_key, _encrypt_email(email), workspace_id, now, _default_role(email)),
             )
         session_token = secrets.token_urlsafe(32)
         db.execute("DELETE FROM auth_sessions WHERE expires_at<?", (now,))
@@ -236,6 +427,7 @@ def verify_code(email: str, code: str) -> tuple[str, str]:
             (_digest(session_token, b"session:"), user_key, now + SESSION_TTL_SECONDS, now),
         )
         db.commit()
+        _record_login_alert(email, ip)
         return session_token, workspace_id
     finally:
         db.close()
@@ -248,11 +440,15 @@ def get_user(session_token: str | None) -> dict[str, str] | None:
     try:
         now = int(time.time())
         row = db.execute(
-            "SELECT u.email_ciphertext,u.workspace_id FROM auth_sessions s JOIN users u ON u.user_key=s.user_key "
+            "SELECT u.email_ciphertext,u.workspace_id,u.role FROM auth_sessions s JOIN users u ON u.user_key=s.user_key "
             "WHERE s.token_hash=? AND s.expires_at>?",
             (_digest(session_token, b"session:"), now),
         ).fetchone()
-        return {"email": _decrypt_email(row["email_ciphertext"]), "workspace_id": row["workspace_id"]} if row else None
+        if not row:
+            return None
+        email = _decrypt_email(row["email_ciphertext"])
+        role = "owner" if _owner_email() and email == _owner_email() else row["role"]
+        return {"email": email, "workspace_id": row["workspace_id"], "role": role}
     finally:
         db.close()
 

@@ -81,7 +81,74 @@ def test_auth_with_email_one_time_code(monkeypatch):
     assert res_auth.status_code == 200
     assert res_auth.json()["is_authenticated"] is True
     assert res_auth.json()["email"] == "judge@example.com"
+    assert res_auth.json()["role"] == "analyst"
     assert client.get("/api/quality/score").status_code == 200
+
+    # Role assignment is persisted; viewers cannot mutate private datasets.
+    assert auth_module.set_user_role("judge@example.com", "viewer")
+    assert client.post("/api/dataset/upload", files={"file": ("data.csv", io.BytesIO(b"a\n1\n"), "text/csv")}).status_code == 403
+
+
+def test_google_oidc_state_is_single_use_and_callback_sets_session(monkeypatch):
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("CLEARTRACE_GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("CLEARTRACE_GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("CLEARTRACE_PUBLIC_URL", "https://cleartrace.example")
+    import server as server_module
+    monkeypatch.setattr(server_module, "exchange_google_code", lambda code, redirect: "mock.id.token")
+    monkeypatch.setattr(server_module, "verify_google_id_token", lambda token: "google-user@example.com")
+    client.cookies.clear()
+    start = client.get("/api/auth/google/start", follow_redirects=False)
+    assert start.status_code == 302
+    assert "accounts.google.com" in start.headers["location"]
+    from urllib.parse import urlparse, parse_qs
+    query = parse_qs(urlparse(start.headers["location"]).query)
+    assert query["redirect_uri"] == ["https://cleartrace.example/api/auth/google/callback"]
+    state = query["state"][0]
+    callback = client.get("/api/auth/google/callback", params={"state": state, "code": "one-time"}, follow_redirects=False)
+    assert callback.status_code == 303
+    assert callback.headers["location"] == "/"
+    assert client.get("/api/auth/status").json()["email"] == "google-user@example.com"
+    assert not auth_module.consume_oauth_state(state)
+
+
+def test_owner_role_assignment_requires_owner(monkeypatch):
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("CLEARTRACE_OWNER_EMAIL", "owner@example.com")
+    monkeypatch.setattr(auth_module, "_send_security_alert", lambda *args, **kwargs: None)
+    monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
+    sent = {}
+    client.cookies.clear()
+    client.post("/api/auth/request-code", json={"email": "owner@example.com"})
+    assert client.post("/api/auth/verify", json={"email": "owner@example.com", "code": sent["code"]}).status_code == 200
+    owner_session = client.cookies.get("ct_auth_session")
+    client.post("/api/auth/request-code", json={"email": "member@example.com"})
+    client.post("/api/auth/verify", json={"email": "member@example.com", "code": sent["code"]})
+    client.cookies.clear()
+    client.cookies.set("ct_auth_session", owner_session, domain="testserver.local", path="/")
+    assert client.post("/api/auth/role", json={"email": "member@example.com", "role": "viewer"}).status_code == 200
+
+
+def test_owner_security_alerts_cover_login_and_repeated_bad_codes(monkeypatch):
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("CLEARTRACE_OWNER_EMAIL", "owner@example.com")
+    sent, alerts = {}, []
+    monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
+    monkeypatch.setattr(auth_module, "_send_security_alert", lambda email, fingerprint, role, event="successful sign-in": alerts.append(event))
+    client.cookies.clear()
+    client.post("/api/auth/request-code", json={"email": "owner@example.com"})
+    assert client.post("/api/auth/verify", json={"email": "owner@example.com", "code": sent["code"]}).status_code == 200
+    client.post("/api/auth/request-code", json={"email": "new-account@example.com"})
+    invalid = "000000" if sent["code"] != "000000" else "000001"
+    for _ in range(auth_module.OTP_MAX_ATTEMPTS):
+        assert client.post("/api/auth/verify", json={"email": "new-account@example.com", "code": invalid}).status_code == 401
+    assert alerts == ["successful sign-in", "repeated invalid sign-in code attempts"]
 
 
 def test_upload_extension_validation():
