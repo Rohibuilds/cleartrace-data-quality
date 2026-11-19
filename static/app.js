@@ -224,10 +224,9 @@ function showClearTraceLogin() {
         button.textContent = 'Email me a sign-in code';
       } else {
         const googleNote = status.google_sign_in_enabled ? ' You can also continue with Google.' : '';
-        mailStatus.textContent = 'Email sign-in is not configured for this deployment yet. You can still explore the synthetic sample without signing in.' + googleNote;
+        mailStatus.textContent = 'Gmail delivery is not configured for this deployment, so a code cannot be sent yet. You can enter your email, but no code will arrive until the app owner finishes mail setup. You can still explore the synthetic sample without signing in.' + googleNote;
         mailStatus.style.background = '#3a2c1a';
         mailStatus.style.color = '#f2d6a5';
-        emailInput.disabled = true;
         button.disabled = true;
         button.style.opacity = '0.55';
         button.textContent = 'Email sign-in unavailable';
