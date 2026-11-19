@@ -1,0 +1,8 @@
+id,name,city,email,joined_date,salary,notes
+1,Anita, Bengaluru ,anita@example.test,2026-01-10,52000,baseline
+2,Vikram,bengaluru,,2026-02-30,54000,bad date
+3,Meera,Mysuru,meera@example.test,2026-03-01,unknown,bad number
+4,Hari,BENGALURU,hari@example.test,2026-04-22,51000,case variant
+5,Leena,Mysuru,leena@example.test,2026-05-20,9999999,potential outlier
+6,Zoya,Chennai,zoya@example.test,2026-06-21,55000,=2+3
+6,Zoya,Chennai,zoya@example.test,2026-06-21,55000,=2+3

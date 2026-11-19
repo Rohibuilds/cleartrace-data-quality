@@ -1,0 +1,444 @@
+/*
+ * ============================================================
+ *  cleartrace-background.css
+ *  ClearTrace — Visual Design System  |  v1.0
+ * ============================================================
+ *
+ *  PURPOSE
+ *  -------
+ *  This file contains only the background, surface, typography,
+ *  and colour-token rules that define the ClearTrace visual
+ *  identity.  It is intentionally decoupled from layout so that
+ *  Codex can inject or adapt these rules into Streamlit's
+ *  custom-CSS blocks without touching the dashboard structure.
+ *
+ *  STREAMLIT INTEGRATION NOTE (see integration-notes.md)
+ *  ------------------------------------------------------
+ *  - Drop the :root block into Streamlit's st.markdown() CSS.
+ *  - Apply .ct-page-bg to <body> or Streamlit's main container.
+ *  - Use the surface/card tokens via inline style="" in Python.
+ *
+ * ============================================================
+ */
+
+/* ── 1. Design Tokens ───────────────────────────────────────── */
+
+:root {
+  /* Canvas */
+  --ct-canvas:          #F4F6F9;    /* page background base       */
+  --ct-canvas-alt:      #EDF0F5;    /* alternate section tone      */
+
+  /* Navy text palette */
+  --ct-navy-900:        #0F1D35;    /* headline / primary text     */
+  --ct-navy-700:        #1E3A5F;    /* secondary text / subhead    */
+  --ct-navy-500:        #3A5880;    /* muted body copy             */
+  --ct-navy-200:        #C4D1E0;    /* dividers                    */
+  --ct-navy-100:        #E4EAF2;    /* subtle borders              */
+
+  /* Cool blue-gray surfaces */
+  --ct-surface-0:       #FFFFFF;    /* card / panel background     */
+  --ct-surface-1:       #F7F9FB;    /* inner panel row alt         */
+  --ct-surface-2:       #EEF2F7;    /* input / chip background     */
+  --ct-surface-nav:     #1A2E4A;    /* left nav background         */
+  --ct-surface-nav-txt: #C8D8EC;    /* nav label text              */
+
+  /* Teal accent (primary action) */
+  --ct-teal-600:        #1B7A6E;
+  --ct-teal-500:        #24A99A;    /* primary button / active     */
+  --ct-teal-300:        #7ECEC6;    /* highlights / badges         */
+  --ct-teal-100:        #D8F3F0;    /* soft chip background        */
+
+  /* Warm gold (secondary accent) */
+  --ct-gold-500:        #C89A2E;
+  --ct-gold-300:        #E0BF72;
+  --ct-gold-100:        #FBF3DC;    /* warning chip bg             */
+
+  /* Semantic risk colours */
+  --ct-risk-high-bg:    #FDE8E8;
+  --ct-risk-high-txt:   #9B1C1C;
+  --ct-risk-med-bg:     #FEF3CD;
+  --ct-risk-med-txt:    #7D5A00;
+  --ct-risk-low-bg:     #DCF5EE;
+  --ct-risk-low-txt:    #145A45;
+
+  /* Typography scale */
+  --ct-font-sans:       "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --ct-font-mono:       "JetBrains Mono", "Fira Code", "Cascadia Code",
+                        "Courier New", monospace;
+
+  --ct-fs-xs:           0.6875rem;  /* 11px */
+  --ct-fs-sm:           0.8125rem;  /* 13px */
+  --ct-fs-base:         0.9375rem;  /* 15px */
+  --ct-fs-md:           1.0625rem;  /* 17px */
+  --ct-fs-lg:           1.25rem;    /* 20px */
+  --ct-fs-xl:           1.5rem;     /* 24px */
+  --ct-fs-2xl:          2rem;       /* 32px */
+
+  --ct-fw-regular:      400;
+  --ct-fw-medium:       500;
+  --ct-fw-semibold:     600;
+  --ct-fw-bold:         700;
+
+  /* Spacing scale */
+  --ct-sp-1:  0.25rem;
+  --ct-sp-2:  0.5rem;
+  --ct-sp-3:  0.75rem;
+  --ct-sp-4:  1rem;
+  --ct-sp-5:  1.25rem;
+  --ct-sp-6:  1.5rem;
+  --ct-sp-8:  2rem;
+  --ct-sp-10: 2.5rem;
+  --ct-sp-12: 3rem;
+
+  /* Radii */
+  --ct-radius-sm:   4px;
+  --ct-radius-md:   8px;
+  --ct-radius-lg:   14px;
+  --ct-radius-xl:   20px;
+  --ct-radius-full: 999px;
+
+  /* Shadows */
+  --ct-shadow-card:    0 1px 3px rgba(15,29,53,0.07),
+                       0 4px 12px rgba(15,29,53,0.06);
+  --ct-shadow-raised:  0 2px 6px rgba(15,29,53,0.10),
+                       0 8px 24px rgba(15,29,53,0.08);
+  --ct-shadow-panel:   0 0 0 1px var(--ct-navy-100),
+                       var(--ct-shadow-card);
+
+  /* Transitions */
+  --ct-ease:           cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ct-transition-fast: 150ms var(--ct-ease);
+  --ct-transition-base: 220ms var(--ct-ease);
+}
+
+
+/* ── 2. Page Background ─────────────────────────────────────── */
+
+/*
+ *  .ct-page-bg
+ *  Apply to <body> or Streamlit's outermost container.
+ *  Creates a layered background:
+ *   Layer 1 — Soft radial gradient blob (top-right, teal tint)
+ *   Layer 2 — Subtle fine dot grid texture
+ *   Layer 3 — Flat canvas colour
+ */
+.ct-page-bg {
+  background-color: var(--ct-canvas);
+
+  background-image:
+    /* radial gradient accent blob */
+    radial-gradient(
+      ellipse 68% 48% at 92% 8%,
+      rgba(36, 169, 154, 0.08) 0%,
+      transparent 70%
+    ),
+    /* second subtle blob, gold warm */
+    radial-gradient(
+      ellipse 42% 36% at 4% 88%,
+      rgba(200, 154, 46, 0.055) 0%,
+      transparent 65%
+    ),
+    /* fine dot grid — using SVG data URI so zero network calls */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Ccircle cx='1' cy='1' r='1' fill='%231E3A5F' fill-opacity='0.055'/%3E%3C/svg%3E");
+
+  background-size:
+    100% 100%,
+    100% 100%,
+    28px 28px;
+
+  background-position:
+    top right,
+    bottom left,
+    0 0;
+
+  background-repeat: no-repeat, no-repeat, repeat;
+
+  min-height: 100vh;
+}
+
+
+/* ── 3. Surface Utilities ───────────────────────────────────── */
+
+.ct-card {
+  background: var(--ct-surface-0);
+  border: 1px solid var(--ct-navy-100);
+  border-radius: var(--ct-radius-lg);
+  box-shadow: var(--ct-shadow-card);
+}
+
+.ct-card-raised {
+  background: var(--ct-surface-0);
+  border: 1px solid var(--ct-navy-200);
+  border-radius: var(--ct-radius-lg);
+  box-shadow: var(--ct-shadow-raised);
+}
+
+.ct-panel {
+  background: var(--ct-surface-0);
+  border: 1px solid var(--ct-navy-100);
+  border-radius: var(--ct-radius-md);
+  box-shadow: var(--ct-shadow-panel);
+}
+
+.ct-surface-alt {
+  background: var(--ct-surface-1);
+  border-radius: var(--ct-radius-md);
+}
+
+
+/* ── 4. Typography Utilities ────────────────────────────────── */
+
+.ct-heading-xl {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-2xl);
+  font-weight: var(--ct-fw-bold);
+  color: var(--ct-navy-900);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.ct-heading-lg {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-xl);
+  font-weight: var(--ct-fw-semibold);
+  color: var(--ct-navy-900);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.ct-heading-md {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-lg);
+  font-weight: var(--ct-fw-semibold);
+  color: var(--ct-navy-700);
+  line-height: 1.4;
+}
+
+.ct-heading-sm {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-md);
+  font-weight: var(--ct-fw-semibold);
+  color: var(--ct-navy-700);
+  line-height: 1.4;
+}
+
+.ct-body {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-base);
+  font-weight: var(--ct-fw-regular);
+  color: var(--ct-navy-500);
+  line-height: 1.6;
+}
+
+.ct-body-sm {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-sm);
+  font-weight: var(--ct-fw-regular);
+  color: var(--ct-navy-500);
+  line-height: 1.55;
+}
+
+.ct-label {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-xs);
+  font-weight: var(--ct-fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ct-navy-500);
+}
+
+.ct-mono {
+  font-family: var(--ct-font-mono);
+  font-size: var(--ct-fs-sm);
+  color: var(--ct-navy-700);
+}
+
+
+/* ── 5. Badge & Risk Chip Utilities ─────────────────────────── */
+
+.ct-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--ct-radius-full);
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-xs);
+  font-weight: var(--ct-fw-semibold);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ct-badge-teal {
+  background: var(--ct-teal-100);
+  color: var(--ct-teal-600);
+}
+
+.ct-badge-gold {
+  background: var(--ct-gold-100);
+  color: var(--ct-gold-500);
+}
+
+.ct-badge-high {
+  background: var(--ct-risk-high-bg);
+  color: var(--ct-risk-high-txt);
+}
+
+.ct-badge-medium {
+  background: var(--ct-risk-med-bg);
+  color: var(--ct-risk-med-txt);
+}
+
+.ct-badge-low {
+  background: var(--ct-risk-low-bg);
+  color: var(--ct-risk-low-txt);
+}
+
+.ct-badge-nav {
+  background: rgba(36,169,154,0.18);
+  color: var(--ct-teal-300);
+}
+
+
+/* ── 6. Button Utilities ────────────────────────────────────── */
+
+.ct-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ct-sp-2);
+  padding: var(--ct-sp-2) var(--ct-sp-5);
+  border-radius: var(--ct-radius-md);
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-sm);
+  font-weight: var(--ct-fw-semibold);
+  cursor: pointer;
+  border: none;
+  transition: var(--ct-transition-fast);
+  white-space: nowrap;
+}
+
+.ct-btn-primary {
+  background: var(--ct-teal-500);
+  color: #fff;
+}
+
+.ct-btn-primary:hover {
+  background: var(--ct-teal-600);
+  box-shadow: 0 2px 10px rgba(36,169,154,0.32);
+}
+
+.ct-btn-ghost {
+  background: transparent;
+  color: var(--ct-navy-700);
+  border: 1px solid var(--ct-navy-200);
+}
+
+.ct-btn-ghost:hover {
+  background: var(--ct-surface-2);
+  border-color: var(--ct-navy-500);
+}
+
+.ct-btn-approve {
+  background: var(--ct-risk-low-bg);
+  color: var(--ct-risk-low-txt);
+  border: 1px solid rgba(20,90,69,0.18);
+}
+
+.ct-btn-approve:hover {
+  background: #c3eddf;
+}
+
+.ct-btn-reject {
+  background: var(--ct-risk-high-bg);
+  color: var(--ct-risk-high-txt);
+  border: 1px solid rgba(155,28,28,0.14);
+}
+
+.ct-btn-reject:hover {
+  background: #fcd4d4;
+}
+
+
+/* ── 7. Divider & Separator ─────────────────────────────────── */
+
+.ct-divider {
+  border: none;
+  border-top: 1px solid var(--ct-navy-100);
+  margin: 0;
+}
+
+
+/* ── 8. Metric Number Accent ────────────────────────────────── */
+
+.ct-metric-value {
+  font-family: var(--ct-font-sans);
+  font-size: var(--ct-fs-2xl);
+  font-weight: var(--ct-fw-bold);
+  letter-spacing: -0.03em;
+  color: var(--ct-navy-900);
+  line-height: 1;
+}
+
+.ct-metric-value-teal {
+  color: var(--ct-teal-600);
+}
+
+.ct-metric-value-gold {
+  color: var(--ct-gold-500);
+}
+
+.ct-metric-value-risk {
+  color: var(--ct-risk-high-txt);
+}
+
+.ct-sparkbar {
+  height: 4px;
+  border-radius: var(--ct-radius-full);
+  background: var(--ct-navy-100);
+  overflow: hidden;
+  margin-top: var(--ct-sp-3);
+}
+
+.ct-sparkbar-fill {
+  height: 100%;
+  border-radius: var(--ct-radius-full);
+  background: var(--ct-teal-500);
+  transition: width 0.6s var(--ct-ease);
+}
+
+.ct-sparkbar-fill-gold {
+  background: var(--ct-gold-500);
+}
+
+.ct-sparkbar-fill-risk {
+  background: #E05252;
+}
+
+
+/* ── 9. Focus / Accessibility ───────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--ct-teal-500);
+  outline-offset: 2px;
+  border-radius: var(--ct-radius-sm);
+}
+
+
+/* ── 10. Scrollbar Styling (webkit) ─────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ct-surface-2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ct-navy-200);
+  border-radius: var(--ct-radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ct-navy-500);
+}

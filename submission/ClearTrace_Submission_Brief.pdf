@@ -1,0 +1,122 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 5827 >>
+stream
+q 1.000 1.000 1.000 rg
+0 0 595 842 re f
+Q
+q 0.090 0.620 0.560 rg
+0 0 595 7 re f
+Q
+BT /F2 8 Tf 0.090 0.550 0.490 rg 1 0 0 1 48 794 Tm (PROBLEM 01  /  DATAFIX) Tj ET
+BT /F2 31 Tf 0.070 0.130 0.220 rg 1 0 0 1 48 755 Tm (ClearTrace) Tj ET
+BT /F1 12 Tf 0.340 0.410 0.500 rg 1 0 0 1 49 731 Tm (Every issue explained. Every fix traceable.) Tj ET
+q 0.070 0.140 0.240 rg
+56 657 m 539 657 l 543.4184 657 547 660.5816 547 665 c 547 704 l 547 708.4184 543.4184 712 539 712 c 56 712 l 51.5816 712 48 708.4184 48 704 c 48 665 l 48 660.5816 51.5816 657 56 657 c f
+Q
+BT /F2 8 Tf 0.520 0.880 0.830 rg 1 0 0 1 66 692 Tm (REVIEW-FIRST DATA QUALITY) Tj ET
+BT /F2 11 Tf 1.000 1.000 1.000 rg 1 0 0 1 66 672 Tm (Inspect defects. Review repairs. Keep every decision traceable.) Tj ET
+BT /F2 8 Tf 0.340 0.410 0.500 rg 1 0 0 1 48 627 Tm (THE WORKFLOW) Tj ET
+q 0.910 0.960 0.950 rg
+53 597 m 97 597 l 99.7615 597 102 599.2385 102 602 c 102 613 l 102 615.7615 99.7615 618 97 618 c 53 618 l 50.2385 618 48 615.7615 48 613 c 48 602 l 48 599.2385 50.2385 597 53 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 55 604 Tm (Import) Tj ET
+q 0.910 0.960 0.950 rg
+114 597 m 158 597 l 160.7615 597 163 599.2385 163 602 c 163 613 l 163 615.7615 160.7615 618 158 618 c 114 618 l 111.2385 618 109 615.7615 109 613 c 109 602 l 109 599.2385 111.2385 597 114 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 116 604 Tm (Inspect) Tj ET
+q 0.910 0.960 0.950 rg
+175 597 m 219 597 l 221.7615 597 224 599.2385 224 602 c 224 613 l 224 615.7615 221.7615 618 219 618 c 175 618 l 172.2385 618 170 615.7615 170 613 c 170 602 l 170 599.2385 172.2385 597 175 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 177 604 Tm (Explain) Tj ET
+q 0.910 0.960 0.950 rg
+236 597 m 280 597 l 282.7615 597 285 599.2385 285 602 c 285 613 l 285 615.7615 282.7615 618 280 618 c 236 618 l 233.2385 618 231 615.7615 231 613 c 231 602 l 231 599.2385 233.2385 597 236 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 238 604 Tm (Propose) Tj ET
+q 0.910 0.960 0.950 rg
+297 597 m 341 597 l 343.7615 597 346 599.2385 346 602 c 346 613 l 346 615.7615 343.7615 618 341 618 c 297 618 l 294.2385 618 292 615.7615 292 613 c 292 602 l 292 599.2385 294.2385 597 297 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 299 604 Tm (Review) Tj ET
+q 0.910 0.960 0.950 rg
+358 597 m 402 597 l 404.7615 597 407 599.2385 407 602 c 407 613 l 407 615.7615 404.7615 618 402 618 c 358 618 l 355.2385 618 353 615.7615 353 613 c 353 602 l 353 599.2385 355.2385 597 358 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 360 604 Tm (Revalidate) Tj ET
+q 0.910 0.960 0.950 rg
+419 597 m 500 597 l 502.7615 597 505 599.2385 505 602 c 505 613 l 505 615.7615 502.7615 618 500 618 c 419 618 l 416.2385 618 414 615.7615 414 613 c 414 602 l 414 599.2385 416.2385 597 419 597 c f
+Q
+BT /F2 7 Tf 0.100 0.350 0.340 rg 1 0 0 1 421 604 Tm (Export + audit) Tj ET
+BT /F2 8 Tf 0.340 0.410 0.500 rg 1 0 0 1 48 568 Tm (WHAT MAKES CLEARTRACE USEFUL) Tj ET
+BT /F1 9 Tf 0.100 0.150 0.220 rg 1 0 0 1 48 545 Tm (Deterministic checks surface missing values, duplicates, whitespace, category) Tj ET
+BT /F1 9 Tf 0.100 0.150 0.220 rg 1 0 0 1 48 530 Tm (inconsistencies, invalid dates, non-numeric values, and statistical outliers.) Tj ET
+BT /F1 9 Tf 0.100 0.150 0.220 rg 1 0 0 1 48 515 Tm (Findings explain the evidence. Reviewers can edit, approve, or reject a repair) Tj ET
+BT /F1 9 Tf 0.100 0.150 0.220 rg 1 0 0 1 48 500 Tm (before it changes the dataset. Revisions, comparisons, undo, and audit records) Tj ET
+BT /F1 9 Tf 0.100 0.150 0.220 rg 1 0 0 1 48 485 Tm (make accepted changes easier to verify. A phone-friendly PWA supports mobile use.) Tj ET
+BT /F2 8 Tf 0.340 0.410 0.500 rg 1 0 0 1 48 453 Tm (SUBMISSION DETAILS) Tj ET
+q 0.960 0.975 0.980 rg
+48 421 499 25 re f
+Q
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 428 Tm (Team name) Tj ET
+BT /F1 8 Tf 0.100 0.150 0.220 rg 1 0 0 1 185 428 Tm (ClearTrace) Tj ET
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 401 Tm (Selected problem) Tj ET
+BT /F1 8 Tf 0.100 0.150 0.220 rg 1 0 0 1 185 401 Tm (Problem 01 - DataFix: Autonomous Data Quality and Repair Engine) Tj ET
+q 0.960 0.975 0.980 rg
+48 367 499 25 re f
+Q
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 374 Tm (LinkedIn video) Tj ET
+BT /F1 8 Tf 0.100 0.150 0.220 rg 1 0 0 1 185 374 Tm ([ADD AFTER RECORDING - MAXIMUM 3 MINUTES]) Tj ET
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 347 Tm (Public GitHub) Tj ET
+BT /F1 8 Tf 0.100 0.150 0.220 rg 1 0 0 1 185 347 Tm (github.com/Rohibuilds/cleartrace-data-quality) Tj ET
+q 0.960 0.975 0.980 rg
+48 313 499 25 re f
+Q
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 320 Tm (Google Drive PDF) Tj ET
+BT /F1 8 Tf 0.100 0.150 0.220 rg 1 0 0 1 185 320 Tm ([ADD SHARE LINK AFTER UPLOAD]) Tj ET
+BT /F2 8 Tf 0.200 0.290 0.400 rg 1 0 0 1 58 293 Tm (Deployed app) Tj ET
+BT /F1 8 Tf 0.090 0.480 0.440 rg 1 0 0 1 185 293 Tm (cleartrace-web-production.up.railway.app) Tj ET
+q 0.990 0.975 0.920 rg
+0.880 0.790 0.540 RG 0.8 w
+55 183 m 540 183 l 543.8661 183 547 186.1339 547 190 c 547 251 l 547 254.8661 543.8661 258 540 258 c 55 258 l 51.1339 258 48 254.8661 48 251 c 48 190 l 48 186.1339 51.1339 183 55 183 c B
+Q
+BT /F2 8 Tf 0.510 0.390 0.120 rg 1 0 0 1 61 236 Tm (DEMO SCOPE) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 219 Tm (The hosted demo currently uses one shared access token, not individual user accounts.) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 205 Tm (Email/SMS alerts depend on provider setup. Use synthetic data; do not upload confidential) Tj ET
+BT /F1 8 Tf 0.290 0.270 0.210 rg 1 0 0 1 61 191 Tm (datasets to the public demo. Offline mode caches only the app shell.) Tj ET
+q 0.84 0.88 0.91 RG 0.7 w 48 48 m 547 48 l S Q
+BT /F2 7 Tf 0.450 0.520 0.600 rg 1 0 0 1 48 31 Tm (CLEARTRACE  /  DATA QUALITY MADE REVIEWABLE) Tj ET
+BT /F2 7 Tf 0.450 0.520 0.600 rg 1 0 0 1 445 31 Tm (SUBMISSION BRIEF) Tj ET
+endstream
+endobj
+4 0 obj
+<< /Type /Annot /Subtype /Link /Rect [185 291 390 304] /Border [0 0 0] /A << /S /URI /URI (https://cleartrace-web-production.up.railway.app/) >> >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 6 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> /Contents 3 0 R /Annots [4 0 R] >>
+endobj
+6 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000006039 00000 n 
+0000006202 00000 n 
+0000006354 00000 n 
+0000006411 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+6460
+%%EOF

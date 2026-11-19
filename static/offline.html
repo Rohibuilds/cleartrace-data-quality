@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ClearTrace — Offline State</title>
+  <meta name="theme-color" content="#0F172A">
+  <link rel="stylesheet" href="/static/cleartrace.css">
+  <style>
+    .offline-card {
+      max-width: 480px;
+      margin: 80px auto;
+      padding: 36px 28px;
+      background: var(--ct-surface);
+      border: 1px solid var(--ct-navy-200);
+      border-radius: var(--ct-radius-lg);
+      text-align: center;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+    }
+    .offline-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--ct-gold-600);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .offline-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--ct-navy-950);
+      margin-bottom: 8px;
+    }
+    .offline-desc {
+      font-size: 0.88rem;
+      color: var(--ct-navy-600);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .offline-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--ct-radius-full);
+      background: var(--ct-navy-100);
+      font-size: 0.75rem;
+      color: var(--ct-navy-700);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+  <div class="offline-card">
+    <div class="offline-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+    </div>
+    <div class="offline-pill">Application Shell Active · Engine Disconnected</div>
+    <h1 class="offline-title">Connection Unavailable</h1>
+    <p class="offline-desc">
+      ClearTrace is running in offline standalone mode. To scan datasets, evaluate mathematical invariant formulas, run BM25 knowledge queries, or commit transactional repairs, reconnect to your ClearTrace server.
+    </p>
+    <button class="btn btn-primary" onclick="window.location.reload();" style="width:100%;">
+      ↻ Check Connection & Reconnect
+    </button>
+  </div>
+</body>
+</html>

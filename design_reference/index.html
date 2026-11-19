@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearTrace — Visual Prototype</title>
+  <link rel="stylesheet" href="cleartrace-background.css" />
+  <style>
+    /* =====================================================
+       index.html — Layout & Dashboard Styles
+       Prototype-specific rules not meant for Streamlit port.
+       See integration-notes.md for porting guidance.
+    ===================================================== */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--ct-font-sans);
+      color: var(--ct-navy-900);
+      line-height: 1.6;
+    }
+
+    /* ── App Shell ───────────────────────────────────── */
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Left Navigation ─────────────────────────────── */
+
+    .nav {
+      width: 232px;
+      flex-shrink: 0;
+      background: var(--ct-surface-nav);
+      display: flex;
+      flex-direction: column;
+      padding: var(--ct-sp-6) 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+      padding: 0 var(--ct-sp-5) var(--ct-sp-6);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .nav-logo-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--ct-teal-500) 0%, #1B6E9A 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .nav-logo-mark svg { width: 20px; height: 20px; }
+
+    .nav-brand-text h1 {
+      font-size: var(--ct-fs-md);
+      font-weight: var(--ct-fw-bold);
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-brand-text p {
+      font-size: 0.65rem;
+      color: var(--ct-surface-nav-txt);
+      letter-spacing: 0.04em;
+      margin-top: 1px;
+      opacity: 0.75;
+    }
+
+    .nav-section {
+      padding: var(--ct-sp-5) 0 var(--ct-sp-2);
+    }
+
+    .nav-section-label {
+      font-size: 0.6rem;
+      font-weight: var(--ct-fw-semibold);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(200,216,236,0.42);
+      padding: 0 var(--ct-sp-5) var(--ct-sp-2);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+      padding: var(--ct-sp-2) var(--ct-sp-5);
+      border-radius: 0;
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--ct-transition-fast);
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .nav-item.active {
+      background: rgba(36,169,154,0.14);
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 60%;
+      background: var(--ct-teal-500);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      opacity: 0.6;
+      color: var(--ct-surface-nav-txt);
+    }
+
+    .nav-item.active .nav-icon { opacity: 1; color: var(--ct-teal-300); }
+
+    .nav-item-text {
+      font-size: var(--ct-fs-sm);
+      font-weight: var(--ct-fw-medium);
+      color: var(--ct-surface-nav-txt);
+      flex: 1;
+    }
+
+    .nav-item.active .nav-item-text {
+      color: #fff;
+      font-weight: var(--ct-fw-semibold);
+    }
+
+    .nav-count {
+      font-size: 0.65rem;
+      font-weight: var(--ct-fw-bold);
+      background: rgba(36,169,154,0.22);
+      color: var(--ct-teal-300);
+      padding: 1px 7px;
+      border-radius: var(--ct-radius-full);
+    }
+
+    .nav-footer {
+      margin-top: auto;
+      padding: var(--ct-sp-4) var(--ct-sp-5);
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .nav-privacy-pill {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-2);
+      padding: var(--ct-sp-2) var(--ct-sp-3);
+      background: rgba(200,154,46,0.12);
+      border: 1px solid rgba(200,154,46,0.22);
+      border-radius: var(--ct-radius-md);
+    }
+
+    .nav-privacy-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ct-gold-300);
+      flex-shrink: 0;
+      animation: pulse-gold 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-gold {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .nav-privacy-pill span {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-gold-300);
+      font-weight: var(--ct-fw-semibold);
+    }
+
+    /* ── Main Content ────────────────────────────────── */
+
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ──────────────────────────────────────── */
+
+    .topbar {
+      background: rgba(244,246,249,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--ct-navy-100);
+      padding: 0 var(--ct-sp-8);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+    }
+
+    .topbar-dataset-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--ct-radius-sm);
+      background: var(--ct-teal-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .topbar-dataset-icon svg {
+      width: 15px;
+      height: 15px;
+      color: var(--ct-teal-600);
+    }
+
+    .topbar-dataset-name {
+      font-size: var(--ct-fs-base);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .topbar-dataset-meta {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+    }
+
+    .topbar-sep {
+      width: 1px;
+      height: 22px;
+      background: var(--ct-navy-200);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-4);
+    }
+
+    .session-pill {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-2);
+      background: var(--ct-gold-100);
+      border: 1px solid rgba(200,154,46,0.25);
+      border-radius: var(--ct-radius-full);
+      padding: 4px 12px;
+    }
+
+    .session-pill-icon {
+      width: 13px;
+      height: 13px;
+      color: var(--ct-gold-500);
+    }
+
+    .session-pill span {
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-gold-500);
+    }
+
+    .mock-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--ct-navy-700) 0%, var(--ct-teal-600) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-bold);
+      color: #fff;
+    }
+
+    /* ── Page Content Wrapper ────────────────────────── */
+
+    .page-content {
+      flex: 1;
+      padding: var(--ct-sp-8);
+      max-width: 1180px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* ── Upload Hero ─────────────────────────────────── */
+
+    .upload-hero {
+      margin-bottom: var(--ct-sp-8);
+    }
+
+    .upload-hero-top {
+      margin-bottom: var(--ct-sp-6);
+    }
+
+    .upload-hero-top h2 {
+      font-size: var(--ct-fs-2xl);
+      font-weight: var(--ct-fw-bold);
+      color: var(--ct-navy-900);
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    .upload-hero-top p {
+      margin-top: var(--ct-sp-2);
+      font-size: var(--ct-fs-base);
+      color: var(--ct-navy-500);
+      max-width: 560px;
+    }
+
+    .upload-zone {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-6);
+      padding: var(--ct-sp-6) var(--ct-sp-8);
+      background: var(--ct-surface-0);
+      border: 2px dashed var(--ct-navy-200);
+      border-radius: var(--ct-radius-lg);
+      cursor: pointer;
+      transition: var(--ct-transition-base);
+      position: relative;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--ct-teal-500);
+      background: rgba(36,169,154,0.03);
+    }
+
+    .upload-icon-wrap {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--ct-radius-md);
+      background: var(--ct-teal-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .upload-icon-wrap svg {
+      width: 26px;
+      height: 26px;
+      color: var(--ct-teal-600);
+    }
+
+    .upload-zone-text h3 {
+      font-size: var(--ct-fs-md);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .upload-zone-text p {
+      font-size: var(--ct-fs-sm);
+      color: var(--ct-navy-500);
+      margin-top: 2px;
+    }
+
+    .upload-zone-text p strong {
+      color: var(--ct-teal-600);
+      font-weight: var(--ct-fw-semibold);
+    }
+
+    .upload-zone-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+    }
+
+    .workflow-steps {
+      margin-top: var(--ct-sp-5);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--ct-sp-4);
+    }
+
+    .workflow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--ct-sp-3);
+      flex: 1;
+    }
+
+    .workflow-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--ct-surface-2);
+      border: 1px solid var(--ct-navy-200);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-bold);
+      color: var(--ct-navy-500);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .workflow-step-num.done {
+      background: var(--ct-teal-100);
+      border-color: var(--ct-teal-300);
+      color: var(--ct-teal-600);
+    }
+
+    .workflow-step-body h4 {
+      font-size: var(--ct-fs-sm);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-700);
+    }
+
+    .workflow-step-body p {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-top: 2px;
+    }
+
+    .workflow-arrow {
+      flex-shrink: 0;
+      margin-top: 10px;
+      color: var(--ct-navy-200);
+    }
+
+    /* ── Section Header ──────────────────────────────── */
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: var(--ct-sp-4);
+    }
+
+    .section-header h2 {
+      font-size: var(--ct-fs-lg);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .section-header a {
+      font-size: var(--ct-fs-sm);
+      color: var(--ct-teal-600);
+      text-decoration: none;
+      font-weight: var(--ct-fw-medium);
+    }
+
+    /* ── Metric Cards ────────────────────────────────── */
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--ct-sp-4);
+      margin-bottom: var(--ct-sp-8);
+    }
+
+    .metric-card {
+      background: var(--ct-surface-0);
+      border: 1px solid var(--ct-navy-100);
+      border-radius: var(--ct-radius-lg);
+      box-shadow: var(--ct-shadow-card);
+      padding: var(--ct-sp-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--ct-sp-2);
+    }
+
+    .metric-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .metric-label {
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-semibold);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--ct-navy-500);
+    }
+
+    .metric-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--ct-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .metric-icon svg { width: 16px; height: 16px; }
+
+    .metric-icon-teal { background: var(--ct-teal-100); color: var(--ct-teal-600); }
+    .metric-icon-gold { background: var(--ct-gold-100); color: var(--ct-gold-500); }
+    .metric-icon-risk { background: var(--ct-risk-high-bg); color: var(--ct-risk-high-txt); }
+    .metric-icon-mid  { background: var(--ct-risk-med-bg); color: var(--ct-risk-med-txt); }
+
+    .metric-value {
+      font-size: 2.1rem;
+      font-weight: var(--ct-fw-bold);
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--ct-navy-900);
+    }
+
+    .metric-description {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      line-height: 1.4;
+      margin-top: var(--ct-sp-1);
+    }
+
+    .metric-sparkbar {
+      height: 4px;
+      border-radius: var(--ct-radius-full);
+      background: var(--ct-navy-100);
+      overflow: hidden;
+      margin-top: var(--ct-sp-2);
+    }
+
+    .metric-sparkbar-fill {
+      height: 100%;
+      border-radius: var(--ct-radius-full);
+    }
+
+    /* ── Two-column layout for Findings + Repair ────── */
+
+    .twin-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--ct-sp-6);
+      margin-bottom: var(--ct-sp-8);
+    }
+
+    /* ── Panel ───────────────────────────────────────── */
+
+    .panel {
+      background: var(--ct-surface-0);
+      border: 1px solid var(--ct-navy-100);
+      border-radius: var(--ct-radius-lg);
+      box-shadow: var(--ct-shadow-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: var(--ct-sp-4) var(--ct-sp-5);
+      border-bottom: 1px solid var(--ct-navy-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .panel-header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+    }
+
+    .panel-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--ct-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .panel-icon svg { width: 16px; height: 16px; }
+
+    .panel-title {
+      font-size: var(--ct-fs-base);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .panel-subtitle {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-top: 1px;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Findings Table ──────────────────────────────── */
+
+    .findings-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .findings-table thead th {
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-semibold);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--ct-navy-500);
+      text-align: left;
+      padding: var(--ct-sp-3) var(--ct-sp-4);
+      background: var(--ct-surface-1);
+      border-bottom: 1px solid var(--ct-navy-100);
+    }
+
+    .findings-table tbody tr {
+      border-bottom: 1px solid var(--ct-navy-100);
+      transition: background var(--ct-transition-fast);
+      cursor: default;
+    }
+
+    .findings-table tbody tr:last-child { border-bottom: none; }
+
+    .findings-table tbody tr:hover { background: var(--ct-surface-1); }
+
+    .findings-table td {
+      padding: var(--ct-sp-3) var(--ct-sp-4);
+      vertical-align: top;
+    }
+
+    .finding-type {
+      font-size: var(--ct-fs-sm);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .finding-col {
+      font-family: var(--ct-font-mono);
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-700);
+      background: var(--ct-surface-2);
+      padding: 2px 7px;
+      border-radius: var(--ct-radius-sm);
+      display: inline-block;
+    }
+
+    .finding-rows {
+      font-size: var(--ct-fs-sm);
+      color: var(--ct-navy-500);
+    }
+
+    .finding-explanation {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    /* ── Repair Review Panel ─────────────────────────── */
+
+    .repair-item {
+      padding: var(--ct-sp-4) var(--ct-sp-5);
+      border-bottom: 1px solid var(--ct-navy-100);
+    }
+
+    .repair-item:last-child { border-bottom: none; }
+
+    .repair-item:hover { background: var(--ct-surface-1); }
+
+    .repair-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-2);
+      margin-bottom: var(--ct-sp-2);
+    }
+
+    .repair-col-tag {
+      font-family: var(--ct-font-mono);
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-700);
+      background: var(--ct-surface-2);
+      padding: 2px 7px;
+      border-radius: var(--ct-radius-sm);
+    }
+
+    .repair-row-num {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+    }
+
+    .repair-values {
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+      margin-bottom: var(--ct-sp-3);
+    }
+
+    .repair-val {
+      flex: 1;
+      padding: var(--ct-sp-2) var(--ct-sp-3);
+      border-radius: var(--ct-radius-sm);
+      font-family: var(--ct-font-mono);
+      font-size: var(--ct-fs-sm);
+    }
+
+    .repair-val-original {
+      background: var(--ct-risk-high-bg);
+      color: var(--ct-risk-high-txt);
+      border: 1px solid rgba(155,28,28,0.12);
+    }
+
+    .repair-val-proposed {
+      background: var(--ct-risk-low-bg);
+      color: var(--ct-risk-low-txt);
+      border: 1px solid rgba(20,90,69,0.12);
+    }
+
+    .repair-val-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: var(--ct-fw-semibold);
+      display: block;
+      margin-bottom: 3px;
+      opacity: 0.65;
+    }
+
+    .repair-val-text {
+      display: block;
+      font-weight: var(--ct-fw-medium);
+    }
+
+    .repair-arrow {
+      color: var(--ct-navy-300, var(--ct-navy-500));
+      flex-shrink: 0;
+    }
+
+    .repair-reason {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-bottom: var(--ct-sp-3);
+      line-height: 1.45;
+    }
+
+    .repair-actions {
+      display: flex;
+      gap: var(--ct-sp-2);
+    }
+
+    /* ── Audit / History ─────────────────────────────── */
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .history-table thead th {
+      font-size: var(--ct-fs-xs);
+      font-weight: var(--ct-fw-semibold);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--ct-navy-500);
+      text-align: left;
+      padding: var(--ct-sp-3) var(--ct-sp-5);
+      background: var(--ct-surface-1);
+      border-bottom: 1px solid var(--ct-navy-100);
+    }
+
+    .history-table tbody tr {
+      border-bottom: 1px solid var(--ct-navy-100);
+      transition: background var(--ct-transition-fast);
+    }
+
+    .history-table tbody tr:last-child { border-bottom: none; }
+    .history-table tbody tr:hover { background: var(--ct-surface-1); }
+
+    .history-table td {
+      padding: var(--ct-sp-3) var(--ct-sp-5);
+      vertical-align: middle;
+    }
+
+    .history-action {
+      font-size: var(--ct-fs-sm);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-900);
+    }
+
+    .history-action-sub {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-top: 1px;
+    }
+
+    .history-records {
+      font-size: var(--ct-fs-sm);
+      color: var(--ct-navy-700);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .history-ts {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .history-status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ct-teal-500);
+      margin-right: var(--ct-sp-2);
+    }
+
+    /* ── Trust Note ──────────────────────────────────── */
+
+    .trust-note {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--ct-sp-4);
+      padding: var(--ct-sp-4) var(--ct-sp-5);
+      background: var(--ct-gold-100);
+      border: 1px solid rgba(200,154,46,0.22);
+      border-radius: var(--ct-radius-lg);
+      margin-bottom: var(--ct-sp-8);
+    }
+
+    .trust-note-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--ct-radius-sm);
+      background: rgba(200,154,46,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .trust-note-icon svg { width: 18px; height: 18px; color: var(--ct-gold-500); }
+
+    .trust-note-text h4 {
+      font-size: var(--ct-fs-sm);
+      font-weight: var(--ct-fw-semibold);
+      color: var(--ct-navy-700);
+    }
+
+    .trust-note-text p {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-navy-500);
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    /* ── Mock-only banner ────────────────────────────── */
+
+    .mock-banner {
+      background: rgba(27,122,110,0.08);
+      border: 1px solid rgba(27,122,110,0.18);
+      border-radius: var(--ct-radius-md);
+      padding: var(--ct-sp-3) var(--ct-sp-5);
+      display: flex;
+      align-items: center;
+      gap: var(--ct-sp-3);
+      margin-bottom: var(--ct-sp-6);
+    }
+
+    .mock-banner svg { width: 15px; height: 15px; color: var(--ct-teal-600); flex-shrink: 0; }
+
+    .mock-banner p {
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-teal-600);
+      font-weight: var(--ct-fw-medium);
+    }
+
+    .mock-banner strong { font-weight: var(--ct-fw-bold); }
+
+    /* ── Responsive ──────────────────────────────────── */
+
+    @media (max-width: 1024px) {
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .twin-col { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .nav { display: none; }
+      .page-content { padding: var(--ct-sp-5); }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 0 var(--ct-sp-4); }
+      .upload-zone { flex-direction: column; align-items: flex-start; }
+      .upload-zone-actions { margin-left: 0; margin-top: var(--ct-sp-3); }
+      .workflow-steps { flex-direction: column; }
+      .workflow-arrow { display: none; }
+      .history-table { display: block; overflow-x: auto; }
+    }
+
+    @media (max-width: 480px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Interaction feedback (prototype only) ───────── */
+
+    .repair-item.approved {
+      opacity: 0.55;
+    }
+
+    .repair-item.approved::after {
+      content: '✓ Approved (mock)';
+      display: block;
+      font-size: var(--ct-fs-xs);
+      color: var(--ct-risk-low-txt);
+      font-weight: var(--ct-fw-semibold);
+      margin-top: var(--ct-sp-1);
+    }
+  </style>
+</head>
+
+<body class="ct-page-bg">
+<div class="app-shell">
+
+  <!-- ══════════════════════════════════════════════
+       LEFT NAVIGATION
+  ══════════════════════════════════════════════ -->
+  <nav class="nav" aria-label="Main navigation">
+
+    <div class="nav-brand">
+      <div class="nav-logo-mark" aria-hidden="true">
+        <!-- ClearTrace mark: stylised CT trace lines -->
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 7 Q7 3 10 10 Q13 17 17 13" stroke="#fff" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="10" cy="10" r="1.8" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="nav-brand-text">
+        <h1>ClearTrace</h1>
+        <p>DATA QUALITY</p>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-label">Workspace</div>
+
+      <a class="nav-item active" href="#" role="menuitem" aria-current="page">
+        <!-- Home icon -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7.5 18V12.5h5V18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nav-item-text">Overview</span>
+      </a>
+
+      <a class="nav-item" href="#data-quality" role="menuitem">
+        <!-- Shield / check icon -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M10 2.5L3.5 5v5c0 4 3 6.5 6.5 7.5 3.5-1 6.5-3.5 6.5-7.5V5L10 2.5z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M7 10.2l2 2 4-3.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nav-item-text">Data Quality</span>
+        <span class="nav-count">7</span>
+      </a>
+
+      <a class="nav-item" href="#repair-review" role="menuitem">
+        <!-- Wrench icon -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M14.5 3a3.5 3.5 0 00-3.5 3.5c0 .4.07.8.18 1.16L4.5 14.3a1.5 1.5 0 002.12 2.12l6.64-6.68c.36.11.74.18 1.14.18A3.5 3.5 0 0014.5 3z"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nav-item-text">Repair Review</span>
+        <span class="nav-count">3</span>
+      </a>
+
+      <a class="nav-item" href="#audit-trail" role="menuitem">
+        <!-- Clock / history icon -->
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M10 6.5v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nav-item-text">Audit Trail</span>
+      </a>
+    </div>
+
+    <div class="nav-footer">
+      <div class="nav-privacy-pill" role="status" aria-label="Privacy: Session only — data is not stored">
+        <div class="nav-privacy-dot" aria-hidden="true"></div>
+        <span>Session only</span>
+      </div>
+      <p style="font-size:0.6rem;color:rgba(200,216,236,0.38);margin-top:8px;line-height:1.4;">
+        Your data is processed locally and not stored after the session ends.
+      </p>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════
+       MAIN CONTENT AREA
+  ══════════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar" role="banner">
+      <div class="topbar-left">
+        <div class="topbar-dataset-icon" aria-hidden="true">
+          <!-- CSV / grid icon -->
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M3 7.5h14M3 12h14M8 7.5V17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="topbar-dataset-name">customer_orders_q3_2024.csv</div>
+          <div class="topbar-dataset-meta">12,480 rows · 18 columns · 2.1 MB · <em>Illustrative sample data</em></div>
+        </div>
+        <div class="topbar-sep" aria-hidden="true"></div>
+        <span class="ct-badge ct-badge-teal">Analysis complete</span>
+      </div>
+
+      <div class="topbar-right">
+        <div class="session-pill" role="note" aria-label="Session only — data is not stored">
+          <svg class="session-pill-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="5" y="8" width="10" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M7.5 8V6.5a2.5 2.5 0 015 0V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span>Session only</span>
+        </div>
+        <div class="mock-avatar" aria-label="User account" title="Mock user">RK</div>
+      </div>
+    </header>
+
+    <!-- PAGE CONTENT -->
+    <div class="page-content">
+
+      <!-- MOCK PROTOTYPE NOTICE -->
+      <div class="mock-banner" role="note" aria-label="Prototype notice">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M10 9v5M10 7v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <p>
+          <strong>Visual prototype only.</strong>
+          All data shown is illustrative sample data. Controls labelled "Review" and "Approve" are <strong>mock-only</strong>
+          and do not perform any real data repair or validation. No files are uploaded, stored, or processed.
+        </p>
+      </div>
+
+      <!-- ── UPLOAD HERO ──────────────────────────────── -->
+      <section class="upload-hero" id="overview" aria-label="Upload and workflow">
+        <div class="upload-hero-top">
+          <h2>Inspect &amp; Repair Your CSV</h2>
+          <p>Upload a file to scan for quality issues. ClearTrace explains every finding and shows you exactly what any proposed fix would change — before you apply it.</p>
+        </div>
+
+        <!-- Drop zone — mock only -->
+        <div class="upload-zone"
+             role="button"
+             tabindex="0"
+             aria-label="Drop zone: drag and drop a CSV file or click to browse. Mock only — no file is processed."
+             id="upload-zone">
+          <div class="upload-icon-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 16V8M12 8l-3 3M12 8l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 20h12a2 2 0 002-2V9l-5-5H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="upload-zone-text">
+            <h3>Drop your CSV here</h3>
+            <p>or <strong>browse files</strong> · Max 50 MB · UTF-8 or Latin-1 encoding supported</p>
+            <p style="margin-top:4px;font-size:0.68rem;color:var(--ct-navy-500);">
+              <em>Mock drop zone — file is not processed in this prototype</em>
+            </p>
+          </div>
+          <div class="upload-zone-actions">
+            <button class="ct-btn ct-btn-ghost" type="button" aria-label="Browse files (mock only — no file will be processed)">
+              Browse
+            </button>
+            <button class="ct-btn ct-btn-primary" type="button" aria-label="Analyse file (mock only)">
+              Analyse File
+            </button>
+          </div>
+        </div>
+
+        <!-- Workflow Steps -->
+        <div class="workflow-steps" role="list" aria-label="Workflow steps">
+          <div class="workflow-step" role="listitem">
+            <div class="workflow-step-num done" aria-label="Step 1 — complete">✓</div>
+            <div class="workflow-step-body">
+              <h4>Upload CSV</h4>
+              <p>Select or drag a file. Data stays local.</p>
+            </div>
+          </div>
+          <svg class="workflow-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--ct-navy-200)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="workflow-step" role="listitem">
+            <div class="workflow-step-num done" aria-label="Step 2 — complete">✓</div>
+            <div class="workflow-step-body">
+              <h4>Review Findings</h4>
+              <p>See every anomaly with an explanation.</p>
+            </div>
+          </div>
+          <svg class="workflow-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--ct-navy-200)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="workflow-step" role="listitem">
+            <div class="workflow-step-num" aria-label="Step 3 — pending">3</div>
+            <div class="workflow-step-body">
+              <h4>Approve Repairs</h4>
+              <p>Accept or reject each proposed change.</p>
+            </div>
+          </div>
+          <svg class="workflow-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="var(--ct-navy-200)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="workflow-step" role="listitem">
+            <div class="workflow-step-num" aria-label="Step 4 — pending">4</div>
+            <div class="workflow-step-body">
+              <h4>Export &amp; Trace</h4>
+              <p>Download cleaned CSV with change log.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── METRIC CARDS ─────────────────────────────── -->
+      <section id="data-quality" aria-label="Data quality metrics">
+        <div class="section-header">
+          <h2>Quality Summary</h2>
+          <a href="#data-quality">View full report →</a>
+        </div>
+
+        <div class="metrics-grid" role="list">
+
+          <!-- Completeness -->
+          <article class="metric-card" role="listitem" aria-label="Completeness: 94.2%">
+            <div class="metric-card-top">
+              <div>
+                <div class="metric-label">Completeness</div>
+              </div>
+              <div class="metric-icon metric-icon-teal" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="metric-value" aria-label="94.2 percent">94.2%</div>
+            <div class="metric-description">
+              Percentage of cells that contain a non-null, non-empty value.
+              727 cells are blank across 18 columns.
+            </div>
+            <div class="metric-sparkbar" role="img" aria-label="94.2% filled bar">
+              <div class="metric-sparkbar-fill" style="width:94.2%;background:var(--ct-teal-500);"></div>
+            </div>
+          </article>
+
+          <!-- Duplicate Rows -->
+          <article class="metric-card" role="listitem" aria-label="Duplicate rows: 38">
+            <div class="metric-card-top">
+              <div>
+                <div class="metric-label">Duplicate Rows</div>
+              </div>
+              <div class="metric-icon metric-icon-risk" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="6" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M8 6V5a1 1 0 011-1h6a1 1 0 011 1v9a1 1 0 01-1 1h-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="metric-value" style="color:var(--ct-risk-high-txt);" aria-label="38 duplicate rows">38</div>
+            <div class="metric-description">
+              Rows with an identical combination of values across all columns.
+              Likely caused by repeated ETL imports.
+            </div>
+            <div class="metric-sparkbar" role="img" aria-label="0.3% of total rows are duplicates">
+              <div class="metric-sparkbar-fill metric-sparkbar-fill-risk" style="width:0.3%;background:#E05252;"></div>
+            </div>
+          </article>
+
+          <!-- Missing Values -->
+          <article class="metric-card" role="listitem" aria-label="Missing values: 727">
+            <div class="metric-card-top">
+              <div>
+                <div class="metric-label">Missing Values</div>
+              </div>
+              <div class="metric-icon metric-icon-gold" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="metric-value" style="color:var(--ct-gold-500);" aria-label="727 missing values">727</div>
+            <div class="metric-description">
+              Blank or null cells. The <code style="font-family:var(--ct-font-mono);font-size:0.72rem;">email</code>
+              and <code style="font-family:var(--ct-font-mono);font-size:0.72rem;">region</code> columns account for 68%.
+            </div>
+            <div class="metric-sparkbar" role="img" aria-label="5.8% missing">
+              <div class="metric-sparkbar-fill" style="width:5.8%;background:var(--ct-gold-500);"></div>
+            </div>
+          </article>
+
+          <!-- Format Checks -->
+          <article class="metric-card" role="listitem" aria-label="Format violations: 112">
+            <div class="metric-card-top">
+              <div>
+                <div class="metric-label">Format Violations</div>
+              </div>
+              <div class="metric-icon metric-icon-mid" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 2.5L2.5 17h15L10 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M10 8.5v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="metric-value" style="color:var(--ct-risk-med-txt);" aria-label="112 format violations">112</div>
+            <div class="metric-description">
+              Values that don't match the expected pattern — e.g. dates in wrong format,
+              phone numbers with letters, negative quantities.
+            </div>
+            <div class="metric-sparkbar" role="img" aria-label="0.9% of all values have format violations">
+              <div class="metric-sparkbar-fill" style="width:0.9%;background:var(--ct-gold-500);"></div>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ── TRUST NOTE ───────────────────────────────── -->
+      <div class="trust-note" role="note" aria-label="Important note about data findings">
+        <div class="trust-note-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2.5L3.5 5v5c0 4 3 6.5 6.5 7.5 3.5-1 6.5-3.5 6.5-7.5V5L10 2.5z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 8.5v3M10 13.5v.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="trust-note-text">
+          <h4>Findings are for human review — not automatic verdicts</h4>
+          <p>
+            Unusual or unexpected values are surfaced as <em>candidate issues</em> for your inspection.
+            ClearTrace does not assume a value is wrong. You decide which findings are real problems
+            and which proposed repairs to accept. All changes are reversible until you export.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── FINDINGS + REPAIR REVIEW TWIN COL ──────── -->
+      <div class="twin-col">
+
+        <!-- FINDINGS PANEL -->
+        <section id="data-quality-detail" aria-label="Data quality findings">
+          <div class="section-header">
+            <h2>Findings</h2>
+            <span class="ct-badge ct-badge-high">7 issues</span>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-icon metric-icon-risk" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 2.5L2.5 17h15L10 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10 8.5v4M10 14.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="panel-title">Issue Findings</div>
+                  <div class="panel-subtitle">Illustrative sample — not real analysis</div>
+                </div>
+              </div>
+              <button class="ct-btn ct-btn-ghost" type="button" aria-label="Export findings report (mock only)">Export</button>
+            </div>
+
+            <div class="panel-body">
+              <table class="findings-table" aria-label="Data quality findings table">
+                <thead>
+                  <tr>
+                    <th scope="col">Issue / Column</th>
+                    <th scope="col">Rows</th>
+                    <th scope="col">Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Duplicate Rows</div>
+                      <code class="finding-col">all columns</code>
+                      <div class="finding-explanation">Exact row copies, likely from repeated import batches.</div>
+                    </td>
+                    <td><span class="finding-rows">38</span></td>
+                    <td><span class="ct-badge ct-badge-high" role="img" aria-label="High risk">High</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Missing Email</div>
+                      <code class="finding-col">customer_email</code>
+                      <div class="finding-explanation">Empty cells where an email address is expected by schema.</div>
+                    </td>
+                    <td><span class="finding-rows">421</span></td>
+                    <td><span class="ct-badge ct-badge-medium" role="img" aria-label="Medium risk">Med</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Invalid Date Format</div>
+                      <code class="finding-col">order_date</code>
+                      <div class="finding-explanation">Values like "31/13/2024" or "2024-99-01" can't be parsed as dates.</div>
+                    </td>
+                    <td><span class="finding-rows">14</span></td>
+                    <td><span class="ct-badge ct-badge-high" role="img" aria-label="High risk">High</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Negative Quantity</div>
+                      <code class="finding-col">quantity</code>
+                      <div class="finding-explanation">Quantity values below zero; may indicate return records mixed with orders.</div>
+                    </td>
+                    <td><span class="finding-rows">7</span></td>
+                    <td><span class="ct-badge ct-badge-medium" role="img" aria-label="Medium risk">Med</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Whitespace Padding</div>
+                      <code class="finding-col">region</code>
+                      <div class="finding-explanation">Leading/trailing spaces cause grouping mismatches (e.g. "North " ≠ "North").</div>
+                    </td>
+                    <td><span class="finding-rows">89</span></td>
+                    <td><span class="ct-badge ct-badge-low" role="img" aria-label="Low risk">Low</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Out-of-Range Amount</div>
+                      <code class="finding-col">order_amount</code>
+                      <div class="finding-explanation">Values exceeding \$1 M detected; may be unit errors (pence vs pounds).</div>
+                    </td>
+                    <td><span class="finding-rows">3</span></td>
+                    <td><span class="ct-badge ct-badge-high" role="img" aria-label="High risk">High</span></td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="finding-type">Inconsistent Case</div>
+                      <code class="finding-col">status</code>
+                      <div class="finding-explanation">Mixed case values: "PENDING", "Pending", "pending" treated as separate.</div>
+                    </td>
+                    <td><span class="finding-rows">156</span></td>
+                    <td><span class="ct-badge ct-badge-low" role="img" aria-label="Low risk">Low</span></td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- REPAIR REVIEW PANEL -->
+        <section id="repair-review" aria-label="Repair review">
+          <div class="section-header">
+            <h2>Repair Review</h2>
+            <span class="ct-badge ct-badge-teal">3 pending</span>
+          </div>
+
+          <div class="panel" id="repair-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <div class="panel-icon metric-icon-teal" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14.5 3a3.5 3.5 0 00-3.5 3.5c0 .4.07.8.18 1.16L4.5 14.3a1.5 1.5 0 002.12 2.12l6.64-6.68c.36.11.74.18 1.14.18A3.5 3.5 0 0014.5 3z"
+                          stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="panel-title">Proposed Repairs</div>
+                  <div class="panel-subtitle">Approve or reject each change · Mock only</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-body">
+
+              <!-- Repair 1 -->
+              <div class="repair-item" id="repair-1">
+                <div class="repair-meta">
+                  <code class="repair-col-tag">order_date</code>
+                  <span class="ct-badge ct-badge-high">High</span>
+                  <span class="repair-row-num">Row 142</span>
+                </div>
+                <div class="repair-values">
+                  <div class="repair-val repair-val-original" aria-label="Original value: 31/13/2024">
+                    <span class="repair-val-label">Original</span>
+                    <span class="repair-val-text">31/13/2024</span>
+                  </div>
+                  <svg class="repair-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <path d="M4 9h10M10 5l4 4-4 4" stroke="var(--ct-navy-500)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <div class="repair-val repair-val-proposed" aria-label="Proposed value: 2024-12-31">
+                    <span class="repair-val-label">Proposed</span>
+                    <span class="repair-val-text">2024-12-31</span>
+                  </div>
+                </div>
+                <div class="repair-reason">
+                  Month "13" is invalid. Day and month appear transposed.
+                  Reformatted to ISO 8601 and swapped to 2024-12-31.
+                  <strong>Human review required before accepting.</strong>
+                </div>
+                <div class="repair-actions">
+                  <button class="ct-btn ct-btn-approve" type="button"
+                          aria-label="Approve repair for row 142 (mock only)"
+                          onclick="approveRepair('repair-1', this)">
+                    ✓ Approve
+                  </button>
+                  <button class="ct-btn ct-btn-reject" type="button"
+                          aria-label="Reject repair for row 142 (mock only)"
+                          onclick="rejectRepair('repair-1', this)">
+                    ✕ Reject
+                  </button>
+                  <button class="ct-btn ct-btn-ghost" type="button"
+                          aria-label="Edit proposed value (mock only)">
+                    Edit
+                  </button>
+                </div>
+              </div>
+
+              <!-- Repair 2 -->
+              <div class="repair-item" id="repair-2">
+                <div class="repair-meta">
+                  <code class="repair-col-tag">region</code>
+                  <span class="ct-badge ct-badge-low">Low</span>
+                  <span class="repair-row-num">89 rows</span>
+                </div>
+                <div class="repair-values">
+                  <div class="repair-val repair-val-original" aria-label="Original value: North  (with trailing space)">
+                    <span class="repair-val-label">Original</span>
+                    <span class="repair-val-text">"North &nbsp;"</span>
+                  </div>
+                  <svg class="repair-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <path d="M4 9h10M10 5l4 4-4 4" stroke="var(--ct-navy-500)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <div class="repair-val repair-val-proposed" aria-label="Proposed value: North (trimmed)">
+                    <span class="repair-val-label">Proposed</span>
+                    <span class="repair-val-text">"North"</span>
+                  </div>
+                </div>
+                <div class="repair-reason">
+                  Trailing whitespace stripped using <code style="font-family:var(--ct-font-mono);font-size:0.72rem;">str.strip()</code>.
+                  Affects 89 rows with mixed leading/trailing spaces.
+                </div>
+                <div class="repair-actions">
+                  <button class="ct-btn ct-btn-approve" type="button"
+                          aria-label="Approve whitespace repair (mock only)"
+                          onclick="approveRepair('repair-2', this)">
+                    ✓ Approve
+                  </button>
+                  <button class="ct-btn ct-btn-reject" type="button"
+                          aria-label="Reject whitespace repair (mock only)"
+                          onclick="rejectRepair('repair-2', this)">
+                    ✕ Reject
+                  </button>
+                  <button class="ct-btn ct-btn-ghost" type="button"
+                          aria-label="Edit proposed value (mock only)">
+                    Edit
+                  </button>
+                </div>
+              </div>
+
+              <!-- Repair 3 -->
+              <div class="repair-item" id="repair-3">
+                <div class="repair-meta">
+                  <code class="repair-col-tag">status</code>
+                  <span class="ct-badge ct-badge-low">Low</span>
+                  <span class="repair-row-num">156 rows</span>
+                </div>
+                <div class="repair-values">
+                  <div class="repair-val repair-val-original" aria-label="Original value: PENDING or Pending">
+                    <span class="repair-val-label">Original</span>
+                    <span class="repair-val-text">PENDING / Pending</span>
+                  </div>
+                  <svg class="repair-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <path d="M4 9h10M10 5l4 4-4 4" stroke="var(--ct-navy-500)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <div class="repair-val repair-val-proposed" aria-label="Proposed value: pending">
+                    <span class="repair-val-label">Proposed</span>
+                    <span class="repair-val-text">pending</span>
+                  </div>
+                </div>
+                <div class="repair-reason">
+                  Normalised to lowercase to match schema enum.
+                  <code style="font-family:var(--ct-font-mono);font-size:0.72rem;">str.lower()</code> applied to all status values.
+                </div>
+                <div class="repair-actions">
+                  <button class="ct-btn ct-btn-approve" type="button"
+                          aria-label="Approve case normalisation (mock only)"
+                          onclick="approveRepair('repair-3', this)">
+                    ✓ Approve
+                  </button>
+                  <button class="ct-btn ct-btn-reject" type="button"
+                          aria-label="Reject case normalisation (mock only)"
+                          onclick="rejectRepair('repair-3', this)">
+                    ✕ Reject
+                  </button>
+                  <button class="ct-btn ct-btn-ghost" type="button"
+                          aria-label="Edit proposed value (mock only)">
+                    Edit
+                  </button>
+                </div>
+              </div>
+
+            </div><!-- /panel-body -->
+          </div><!-- /panel -->
+        </section>
+
+      </div><!-- /twin-col -->
+
+      <!-- ── CHANGE HISTORY ───────────────────────────── -->
+      <section id="audit-trail" aria-label="Change history and audit trail" style="margin-bottom:var(--ct-sp-8);">
+        <div class="section-header">
+          <h2>Change History</h2>
+          <a href="#audit-trail">Full audit log →</a>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-header-left">
+              <div class="panel-icon" style="background:var(--ct-surface-2);" aria-hidden="true">
+                <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;color:var(--ct-navy-500);">
+                  <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M10 6.5v4l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <div class="panel-title">Accepted Actions</div>
+                <div class="panel-subtitle">Illustrative sample history — not from real changes</div>
+              </div>
+            </div>
+            <button class="ct-btn ct-btn-ghost" type="button" aria-label="Export change log as CSV (mock only)">
+              Export Log
+            </button>
+          </div>
+
+          <div class="panel-body">
+            <table class="history-table" aria-label="Change history table">
+              <thead>
+                <tr>
+                  <th scope="col">Action</th>
+                  <th scope="col">Column</th>
+                  <th scope="col">Records</th>
+                  <th scope="col">Timestamp</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="history-action">Duplicate rows removed</div>
+                    <div class="history-action-sub">Exact matches across all columns de-duplicated</div>
+                  </td>
+                  <td><code class="finding-col">all columns</code></td>
+                  <td><span class="history-records">38 rows</span></td>
+                  <td><span class="history-ts">2024-11-19 09:12:04</span></td>
+                  <td><span class="ct-badge ct-badge-teal">Applied</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="history-action">Whitespace trimmed</div>
+                    <div class="history-action-sub">Leading/trailing spaces removed in <code style="font-family:var(--ct-font-mono);font-size:0.68rem;">region</code></div>
+                  </td>
+                  <td><code class="finding-col">region</code></td>
+                  <td><span class="history-records">89 rows</span></td>
+                  <td><span class="history-ts">2024-11-19 09:14:37</span></td>
+                  <td><span class="ct-badge ct-badge-teal">Applied</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="history-action">Date format corrected</div>
+                    <div class="history-action-sub">Invalid month/day transposition fixed manually by user</div>
+                  </td>
+                  <td><code class="finding-col">order_date</code></td>
+                  <td><span class="history-records">1 row</span></td>
+                  <td><span class="history-ts">2024-11-19 09:16:22</span></td>
+                  <td><span class="ct-badge ct-badge-teal">Applied</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="history-action">Repair rejected — Out-of-range amount</div>
+                    <div class="history-action-sub">User chose to flag for manual investigation instead</div>
+                  </td>
+                  <td><code class="finding-col">order_amount</code></td>
+                  <td><span class="history-records">3 rows</span></td>
+                  <td><span class="history-ts">2024-11-19 09:18:01</span></td>
+                  <td><span class="ct-badge ct-badge-high">Rejected</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /page-content -->
+  </main>
+</div><!-- /app-shell -->
+
+<script>
+  /*
+   * ============================================================
+   *  ClearTrace Prototype — Local Interaction Script
+   *  MOCK ONLY — no data is processed.
+   * ============================================================
+   */
+
+  /* ── Upload zone drag-over visual feedback ─── */
+  const uploadZone = document.getElementById('upload-zone');
+  if (uploadZone) {
+    ['dragenter', 'dragover'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('drag-over');
+      });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+      });
+    });
+    // Keyboard activation
+    uploadZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        showMockModal('upload');
+      }
+    });
+  }
+
+  /* ── Repair approve / reject (mock) ─────────── */
+  function approveRepair(itemId, btn) {
+    const item = document.getElementById(itemId);
+    if (!item || item.classList.contains('approved')) return;
+    item.classList.add('approved');
+    item.querySelectorAll('button').forEach(b => {
+      b.disabled = true;
+      b.style.opacity = '0.45';
+      b.style.cursor = 'not-allowed';
+    });
+    // Visual feedback
+    const fb = document.createElement('div');
+    fb.setAttribute('role', 'status');
+    fb.setAttribute('aria-live', 'polite');
+    fb.style.cssText = `
+      font-size:0.72rem; color:var(--ct-risk-low-txt);
+      font-weight:600; margin-top:6px;
+      padding:4px 10px; background:var(--ct-risk-low-bg);
+      border-radius:4px; display:inline-block;
+    `;
+    fb.textContent = '✓ Approved (mock — no data changed)';
+    item.appendChild(fb);
+  }
+
+  function rejectRepair(itemId, btn) {
+    const item = document.getElementById(itemId);
+    if (!item || item.classList.contains('approved')) return;
+    item.querySelectorAll('button').forEach(b => {
+      b.disabled = true;
+      b.style.opacity = '0.45';
+      b.style.cursor = 'not-allowed';
+    });
+    const fb = document.createElement('div');
+    fb.setAttribute('role', 'status');
+    fb.setAttribute('aria-live', 'polite');
+    fb.style.cssText = `
+      font-size:0.72rem; color:var(--ct-risk-high-txt);
+      font-weight:600; margin-top:6px;
+      padding:4px 10px; background:var(--ct-risk-high-bg);
+      border-radius:4px; display:inline-block;
+    `;
+    fb.textContent = '✕ Rejected (mock — no data changed)';
+    item.appendChild(fb);
+  }
+
+  /* ── Nav active state ────────────────────────── */
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  /* ── Sparkbar animation on load ─────────────── */
+  window.addEventListener('load', () => {
+    document.querySelectorAll('.metric-sparkbar-fill').forEach(bar => {
+      const target = bar.style.width;
+      bar.style.width = '0';
+      setTimeout(() => { bar.style.width = target; }, 150);
+    });
+  });
+
+  /* ── Helper: show mock alert ─────────────────── */
+  function showMockModal(context) {
+    // Simple non-blocking feedback for prototype interactions
+    const msg = context === 'upload'
+      ? 'Upload is mock-only in this prototype.\nIn the real app, your Streamlit backend would handle file processing here.'
+      : 'This action is mock-only.';
+    const toast = document.createElement('div');
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.style.cssText = `
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:var(--ct-navy-900); color:#fff; border-radius:8px;
+      padding:12px 24px; font-size:0.82rem; font-family:var(--ct-font-sans);
+      box-shadow:0 4px 20px rgba(0,0,0,0.25); z-index:9999;
+      max-width:380px; text-align:center; line-height:1.5;
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 3500);
+  }
+</script>
+</body>
+</html>

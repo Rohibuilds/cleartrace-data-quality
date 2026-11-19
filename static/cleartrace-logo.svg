@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+  <!-- Symbol Embedded -->
+  <g transform="translate(0, 0)">
+    <defs>
+      <linearGradient id="ctBgL" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0B1528" />
+        <stop offset="100%" stop-color="#15294A" />
+      </linearGradient>
+      <linearGradient id="ctTraceL" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#0D9488" />
+        <stop offset="45%" stop-color="#24A99A" />
+        <stop offset="85%" stop-color="#38BDF8" />
+        <stop offset="100%" stop-color="#F59E0B" />
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="44" height="44" rx="11" fill="url(#ctBgL)" stroke="#1E3A5F" stroke-width="1" />
+    <path d="M12 27.5 L20.5 35 L36.5 13.5" fill="none" stroke="url(#ctTraceL)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="12" cy="27.5" r="2.2" fill="#0B1528" stroke="#24A99A" stroke-width="1.6" />
+    <circle cx="20.5" cy="35" r="2.5" fill="#24A99A" stroke="#FFFFFF" stroke-width="1" />
+    <circle cx="36.5" cy="13.5" r="3" fill="#F59E0B" stroke="#FFFFFF" stroke-width="1.2" />
+  </g>
+
+  <!-- Typography: Clear (Navy) + Trace (Teal) -->
+  <g transform="translate(58, 28)">
+    <text font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="800" letter-spacing="-0.03em" fill="#0F1D35">Clear<tspan fill="#0D9488" font-weight="800">Trace</tspan></text>
+  </g>
+  <g transform="translate(59, 41)">
+    <text font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="700" letter-spacing="0.14em" fill="#57759B">DATA INTELLIGENCE</text>
+  </g>
+  <!-- Verification Badge -->
+  <g transform="translate(202, 18)">
+    <circle cx="6" cy="6" r="5" fill="#EEFAF8" stroke="#24A99A" stroke-width="1" />
+    <path d="M3.5 6 L5.2 7.8 L8.5 4.2" fill="none" stroke="#0D9488" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

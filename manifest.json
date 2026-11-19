@@ -1,0 +1,76 @@
+{
+  "project": "ClearTrace",
+  "tagline": "Every issue explained. Every fix traceable.",
+  "problem": "01 — DataFix: Autonomous Data Quality and Repair Engine",
+  "source_link": "https://chatgpt.com/s/cx_6afe931644e481919ffa7e2c6b46b23b",
+  "archive_type": "reconstructed_handoff_not_original_conversation_export",
+  "source_status": {
+    "web_chat_text": "not_extractable",
+    "prior_conversation_context": "partially_recovered",
+    "original_code": "not_retrieved",
+    "tests_run_on_original": false,
+    "original_deployment_verified": false
+  },
+  "historic_stack": [
+    "Python",
+    "Streamlit",
+    "Pandas"
+  ],
+  "design_delivery": [
+    "HTML",
+    "CSS",
+    "JavaScript"
+  ],
+  "core_workflow": [
+    "upload",
+    "preview",
+    "scan",
+    "explain",
+    "review",
+    "approve",
+    "apply",
+    "rescan",
+    "undo/reset",
+    "export"
+  ],
+  "issue_classes": [
+    "missing",
+    "exact_duplicates",
+    "whitespace",
+    "category_variants",
+    "invalid_dates",
+    "invalid_numbers",
+    "numeric_outliers"
+  ],
+  "key_constraints": [
+    "preserve original",
+    "explicit repair approval",
+    "audit before/after",
+    "session-local",
+    "no fake functionality",
+    "safe CSV export",
+    "no unauthorized deployment"
+  ],
+  "generated_files": [
+    "README.md",
+    "context/HACKATHON_CONTEXT_AND_COMPLIANCE.md",
+    "context/PROJECT_IDENTITY_AND_DECISIONS.md",
+    "context/RECOVERED_CONVERSATION_TIMELINE.md",
+    "context/SOURCE_AND_COMPLETENESS.md",
+    "engineering/ARCHITECTURE_AND_FILE_PLAN.md",
+    "engineering/KNOWN_GAPS_AND_VERIFICATION.md",
+    "engineering/TEST_AND_ACCEPTANCE_PLAN.md",
+    "engineering/WORK_PLAN_AND_PRIORITIES.md",
+    "prompts/01_START_IN_ANTIGRAVITY.md",
+    "prompts/02_PREMIUM_UI_DESIGN.md",
+    "prompts/03_CODEX_INTEGRATION.md",
+    "samples/TEST_FIXTURE_NOTES.md",
+    "samples/synthetic_quality_issues.csv",
+    "spec/AUDIT_DATA_CONTRACT.md",
+    "spec/COMPLETE_FUNCTIONAL_REQUIREMENTS.md",
+    "spec/DETECTION_AND_REPAIR_POLICY.md",
+    "spec/PREMIUM_UI_AND_BRAND_DIRECTION.md",
+    "spec/SECURITY_PRIVACY_AND_RELIABILITY.md"
+  ],
+  "what_to_open_first": "prompts/01_START_IN_ANTIGRAVITY.md"
+}
