@@ -2,7 +2,7 @@
 
 **Verification date:** 20 November 2026 (Asia/Kolkata)
 
-**Source revision tested:** `b8b9b55` plus the local test-harness corrections listed below
+**Source revision tested:** `84fcb14`
 
 **Runtime:** Python 3.9.6, Pytest 8.4.2, Node 26.13.1
 
