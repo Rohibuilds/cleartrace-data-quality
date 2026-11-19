@@ -2,6 +2,8 @@
 
 ## Demo deployment
 
+**Current provider status (20 November 2026):** the public synthetic judge workspace is the working no-login path. The most recent Railway status check reported email delivery, owner alerts, and Google sign-in disabled. Do not interpret the implementation or mocked-provider tests as proof of live email/OIDC delivery. OTP UI/API now surfaces missing mail setup before a code request; a real sign-in still requires SMTP configuration and a live test.
+
 ClearTrace uses email one-time codes for personal workspaces. Codes are single-use, expire after 10 minutes, and have bounded retries and issuance rates. Auth sessions are opaque, revocable server-side records in SQLite; the cookie is HttpOnly and SameSite=Lax, and Secure on HTTPS. Email addresses are encrypted in the auth database and keyed by a keyed digest. User workspaces are keyed to a verified email identity and use the existing encrypted session persistence.
 
 The no-sign-in judge preview is isolated, uses synthetic sample data, and expires after eight hours. Judges can explore and apply repairs to that temporary sample workspace; file uploads are blocked. Configure Gmail SMTP in Railway with `CLEARTRACE_SMTP_USERNAME`, `CLEARTRACE_SMTP_PASSWORD` (a Google app password), `CLEARTRACE_SMTP_FROM`, and optionally `CLEARTRACE_SMTP_HOST` / `CLEARTRACE_SMTP_PORT`. Set `CLEARTRACE_OWNER_EMAIL` to the address that should receive security alerts and become the initial owner. Keep all secrets in Railway Variables, never in the repository. `CLEARTRACE_AUTH_ALLOWED_EMAILS` can optionally restrict sign-in; leave it unset for judge self-service.

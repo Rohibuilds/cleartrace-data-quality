@@ -46,6 +46,10 @@ ClearTrace is containerized as a standalone, non-root web service serving both t
 
 ## 2. Pre-Deployment Configuration Checklist
 
+### Current production configuration note
+
+The last recorded check of the public Railway service found `smtp_delivery_enabled=false`, `owner_alerts_enabled=false`, and `google_sign_in_enabled=false`. The current app-password variable was not present at that check. A Gmail app password must be entered privately in Railway Variables as `CLEARTRACE_SMTP_PASSWORD`, followed by a deployment and a real email delivery test. No secret should be committed or sent in chat. The unauthenticated synthetic judge sample remains the demo route while mail is unavailable.
+
 Verify all deployment assets prepared in the repository:
 
 | File | Status | Purpose |

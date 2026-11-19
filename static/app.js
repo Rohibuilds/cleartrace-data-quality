@@ -138,6 +138,10 @@ function showClearTraceLogin() {
     <p style="color:#b8c7de;line-height:1.5">
     Sign in with an email code to save your own workspace, or explore and repair a sample as a judge.
     </p>
+    <p id="ct-mail-status" role="status" aria-live="polite"
+      style="padding:11px 12px;border-radius:9px;background:#1b2940;color:#c6d5ea;font-size:13px;line-height:1.5">
+      Checking email sign-in availability…
+    </p>
     <form id="ct-login-form">
       <label for="ct-login-email" style="display:block;margin:12px 0 6px;color:#b8c7de">Email address</label>
       <input id="ct-login-email"
@@ -164,7 +168,7 @@ function showClearTraceLogin() {
         style="margin-top:16px;width:100%;padding:14px;
         border:0;border-radius:10px;background:#467dec;
         color:white;font-size:16px;font-weight:700">
-        Email me a sign-in code
+        Checking email sign-in…
       </button>
       <p id="ct-login-error" role="alert"
         style="color:#ffaaaa;min-height:20px"></p>
@@ -199,14 +203,42 @@ function showClearTraceLogin() {
   const demoButton = dialog.querySelector('#ct-public-demo');
   const googleButton = dialog.querySelector('#ct-google-login');
   const error = dialog.querySelector('#ct-login-error');
+  const mailStatus = dialog.querySelector('#ct-mail-status');
   let codeRequested = false;
+
+  button.disabled = true;
+  button.style.opacity = '0.7';
 
   emailInput.focus();
 
   fetch('/api/auth/status', { credentials: 'same-origin', cache: 'no-store' })
     .then(response => response.json())
-    .then(status => { googleButton.hidden = !status.google_sign_in_enabled; })
-    .catch(() => {});
+    .then(status => {
+      googleButton.hidden = !status.google_sign_in_enabled;
+      if (status.smtp_delivery_enabled) {
+        mailStatus.textContent = 'Email verification is available. Sign-in codes expire after 10 minutes.';
+        mailStatus.style.background = '#17352f';
+        mailStatus.style.color = '#b7e6d2';
+        button.disabled = false;
+        button.style.opacity = '1';
+        button.textContent = 'Email me a sign-in code';
+      } else {
+        const googleNote = status.google_sign_in_enabled ? ' You can also continue with Google.' : '';
+        mailStatus.textContent = 'Email sign-in is not configured for this deployment yet. You can still explore the synthetic sample without signing in.' + googleNote;
+        mailStatus.style.background = '#3a2c1a';
+        mailStatus.style.color = '#f2d6a5';
+        emailInput.disabled = true;
+        button.disabled = true;
+        button.style.opacity = '0.55';
+        button.textContent = 'Email sign-in unavailable';
+      }
+    })
+    .catch(() => {
+      mailStatus.textContent = 'Could not check email sign-in availability. Refresh the page or open the sample workspace.';
+      button.textContent = 'Email sign-in unavailable';
+      button.disabled = true;
+      button.style.opacity = '0.55';
+    });
   googleButton.addEventListener('click', () => { window.location.assign('/api/auth/google/start'); });
 
   changeEmailButton.addEventListener('click', () => {
@@ -241,6 +273,7 @@ function showClearTraceLogin() {
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (button.disabled) return;
     const email = emailInput.value.trim().toLowerCase();
     if (!email) return;
 

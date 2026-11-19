@@ -15,7 +15,7 @@
 
 ClearTrace is a review-first data quality workspace. It inspects data, explains detected issues, offers suggested repairs for human review, records approved changes, revalidates the dataset, and exports cleaned data and audit information. It supports CSV and spreadsheet workflows, deterministic issue checks, mathematical validation, revision history, comparison, and a mobile PWA shell.
 
-The public judge preview uses synthetic sample data in a temporary workspace. Judges can inspect and apply repairs; uploads are blocked. Personal workspaces use email one-time codes; Gmail delivery must be configured in Railway before that sign-in path can be used. Login activity alert emails are not part of this OTP flow. Do not describe other email/SMS alerts as operational unless separately configured and verified. Do not use this demo for confidential customer data.
+The public judge preview uses synthetic sample data in a temporary workspace. Judges can inspect and apply repairs; uploads are blocked. Personal workspaces use email one-time codes, but the last production status check showed Gmail SMTP delivery off because `CLEARTRACE_SMTP_PASSWORD` was missing. Configure it privately in Railway and test a real message before demonstrating personal login. Owner login alerts depend on the same SMTP setup. Do not describe email alerts or Google sign-in as live until separately configured and verified. Do not use this demo for confidential customer data.
 
 ## Three-minute video outline
 

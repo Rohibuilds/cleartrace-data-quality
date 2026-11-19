@@ -58,6 +58,9 @@ def test_auth_with_email_one_time_code(monkeypatch):
     import cleartrace.auth as auth_module
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
     monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("CLEARTRACE_SMTP_USERNAME", "cleartrace-test@example.test")
+    monkeypatch.setenv("CLEARTRACE_SMTP_PASSWORD", "mock-only-password")
+    monkeypatch.setenv("CLEARTRACE_SMTP_FROM", "cleartrace-test@example.test")
     client.cookies.clear()
     sent = {}
     monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
@@ -83,6 +86,24 @@ def test_auth_with_email_one_time_code(monkeypatch):
     assert res_auth.json()["email"] == "judge@example.com"
     assert res_auth.json()["role"] == "analyst"
     assert client.get("/api/quality/score").status_code == 200
+
+
+def test_otp_reports_unconfigured_mail_actionably(monkeypatch):
+    """Fail before creating a challenge when outbound mail is not configured."""
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.delenv("CLEARTRACE_SMTP_USERNAME", raising=False)
+    monkeypatch.delenv("CLEARTRACE_SMTP_PASSWORD", raising=False)
+    monkeypatch.delenv("CLEARTRACE_SMTP_FROM", raising=False)
+    client.cookies.clear()
+
+    status = client.get("/api/auth/status")
+    assert status.status_code == 200
+    assert status.json()["smtp_delivery_enabled"] is False
+    response = client.post("/api/auth/request-code", json={"email": "judge@example.com"})
+    assert response.status_code == 503
+    assert "not configured" in response.json()["detail"].lower()
+    assert "sample workspace" in response.json()["detail"].lower()
 
 def test_google_oidc_state_is_single_use_and_callback_sets_session(monkeypatch):
     import cleartrace.auth as auth_module
@@ -114,6 +135,9 @@ def test_owner_role_assignment_requires_owner(monkeypatch):
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
     monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
     monkeypatch.setenv("CLEARTRACE_OWNER_EMAIL", "owner@example.com")
+    monkeypatch.setenv("CLEARTRACE_SMTP_USERNAME", "cleartrace-test@example.test")
+    monkeypatch.setenv("CLEARTRACE_SMTP_PASSWORD", "mock-only-password")
+    monkeypatch.setenv("CLEARTRACE_SMTP_FROM", "cleartrace-test@example.test")
     monkeypatch.setattr(auth_module, "_send_security_alert", lambda *args, **kwargs: None)
     monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
     sent = {}
@@ -147,6 +171,9 @@ def test_owner_security_alerts_cover_login_and_repeated_bad_codes(monkeypatch):
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
     monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
     monkeypatch.setenv("CLEARTRACE_OWNER_EMAIL", "owner@example.com")
+    monkeypatch.setenv("CLEARTRACE_SMTP_USERNAME", "cleartrace-test@example.test")
+    monkeypatch.setenv("CLEARTRACE_SMTP_PASSWORD", "mock-only-password")
+    monkeypatch.setenv("CLEARTRACE_SMTP_FROM", "cleartrace-test@example.test")
     sent, alerts = {}, []
     monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
     monkeypatch.setattr(auth_module, "_send_security_alert", lambda email, fingerprint, role, event="successful sign-in": alerts.append(event))

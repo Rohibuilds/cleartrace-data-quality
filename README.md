@@ -32,7 +32,7 @@ The product is designed to keep data repair visible and deliberate: findings are
 
 ## Try the deployed demo
 
-Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. To keep a personal workspace across visits, enter an email address and verify the one-time code delivered to that inbox. File uploads are limited to verified email workspaces.
+Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. Personal email OTP requires a configured SMTP sender and app password. The current Railway deployment was last verified with SMTP delivery disabled, so use the sample workspace until the operator adds `CLEARTRACE_SMTP_PASSWORD` (and confirms a real delivery test). File uploads are limited to verified email workspaces.
 
 Use synthetic or non-sensitive data for the public demo. The current deployment is a controlled demonstration, not a multi-tenant commercial service.
 

@@ -1,15 +1,15 @@
 # ClearTrace — Feature Verification Matrix & Compliance Trace
 
-**Assessment Date:** November 19, 2026  
+**Assessment Date:** November 20, 2026  
 **Evaluation Standard:** Problem Statement 01 (*DataFix — Autonomous Data Quality and Repair Engine*) & ClearTrace Mentor Round Specifications  
-**Test Suite Reference:** 63 Automated Pytest Suites (`tests/test_cleartrace.py`, `tests/test_api.py`, `tests/test_adversarial.py`, `tests/test_mentor_round.py`, `tests/test_math_intelligence_advanced.py`, `tests/test_persistence.py`, `tests/test_cloudflare_tunnel_proxy.py`)  
-**Overall Feature Completeness:** **100% of MVP, Mentor Round & Premium Redesign Requirements Verified**  
+**Test Suite Reference:** See `TEST_REPORT.md` for the current automated test count and the distinction between mocked providers and live checks.  
+**Scope:** This matrix maps product requirements to code paths and tests. It does not certify that every third-party provider is configured or that the service is ready for commercial multi-tenant use.  
 
 ---
 
 ## 1. End-to-End User Journey Verification
 
-The complete end-to-end user journey is fully implemented, verified, and traceable across both the REST API / PWA interface and the Streamlit companion studio:
+The intended user journey is represented across the REST API / PWA interface and the Streamlit companion studio. Individual code and test evidence is listed below; deployment-specific provider features must be checked separately:
 
 $$\text{Upload (CSV/XLSX/PDF)} \longrightarrow \text{Provenance Map} \longrightarrow \text{Math/Quality Scan} \longrightarrow \text{Understand \& RAG} \longrightarrow \text{Propose} \longrightarrow \text{Review} \longrightarrow \text{Approve} \longrightarrow \text{Apply} \longrightarrow \text{Rescan} \longrightarrow \text{Undo/Reset} \longrightarrow \text{Export}$$
 
@@ -165,5 +165,5 @@ $$\text{Upload (CSV/XLSX/PDF)} \longrightarrow \text{Provenance Map} \longrighta
 
 ## 6. Verification Conclusion
 
-Every feature specified in the functional requirements, adversarial directives, and mentor round upgrades has been implemented, verified, and automated. ClearTrace achieves a **100% verification pass rate across 53 automated tests** with zero mock or placeholder behaviors, zero cloud data egress, and 0 Bandit security issues across 3,817 lines of production code.
+This document is a feature-to-code map, not a completeness certificate or independent compliance report. The current test result and live deployment checks are recorded in `TEST_REPORT.md`. SMTP and Google OIDC test flows use mocks; live provider delivery/sign-in are not verified unless the deployment report says otherwise. The public sample workspace is the supported no-login judging route. Commercial release requires the operational and security work listed in `SECURITY.md` and `RELEASE_READINESS.md`.
 

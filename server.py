@@ -43,7 +43,7 @@ from cleartrace.auth import (
     request_code, verify_code, get_user, logout as logout_auth_session,
     create_public_demo, get_public_demo, get_role, set_user_role,
     google_authorization_url, consume_oauth_state, exchange_google_code,
-    verify_google_id_token, create_google_session,
+    verify_google_id_token, create_google_session, smtp_delivery_enabled,
 )
 
 import secrets
@@ -58,7 +58,7 @@ logger = logging.getLogger("cleartrace.server")
 
 app = FastAPI(
     title="ClearTrace API",
-    version="2.3.1",
+    version="2.3.2",
     description="Autonomous Data Quality and Traceable Repair Engine",
 )
 
@@ -447,7 +447,7 @@ def health_probe() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.1",
+        "version": "2.3.2",
         "storage": "ready" if storage_ready else "unmounted",
         "llm": "direct-evidence",
     }
@@ -462,7 +462,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.1",
+        "version": "2.3.2",
         "session_active": has_session,
         "dataset_loaded": sm.filename if sm else None,
         "dataset_revision": sm.dataset_revision if sm else 0,
@@ -484,7 +484,7 @@ def auth_status(request: Request) -> Dict[str, Any]:
         "email": user["email"] if user else None,
         "role": user["role"] if user else None,
         "google_sign_in_enabled": bool(os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID") and os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET")),
-        "smtp_delivery_enabled": bool(os.environ.get("CLEARTRACE_SMTP_USERNAME") and os.environ.get("CLEARTRACE_SMTP_PASSWORD") and (os.environ.get("CLEARTRACE_SMTP_FROM") or os.environ.get("CLEARTRACE_SMTP_USERNAME"))),
+        "smtp_delivery_enabled": smtp_delivery_enabled(),
         "owner_alerts_enabled": bool((os.environ.get("CLEARTRACE_OWNER_EMAIL") or os.environ.get("CLEARTRACE_SMTP_USERNAME")) and os.environ.get("CLEARTRACE_SMTP_USERNAME") and os.environ.get("CLEARTRACE_SMTP_PASSWORD")),
     }
 
@@ -492,6 +492,11 @@ def auth_status(request: Request) -> Dict[str, Any]:
 @app.post("/api/auth/request-code")
 def auth_request_code(payload: EmailCodeRequest, request: Request) -> Dict[str, Any]:
     """Email a short-lived, single-use sign-in code."""
+    if not smtp_delivery_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Email sign-in is not configured on this deployment yet. Use the sample workspace or contact the app owner.",
+        )
     email = payload.email.strip().lower()
     if len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
         raise HTTPException(status_code=400, detail="Enter a valid email address.")

@@ -153,6 +153,14 @@ def _owner_email() -> str:
     return os.environ.get("CLEARTRACE_OWNER_EMAIL", os.environ.get("CLEARTRACE_SMTP_USERNAME", "")).strip().lower()
 
 
+def smtp_delivery_enabled() -> bool:
+    """Return whether all required outbound email settings are present."""
+    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
+    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").strip()
+    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
+    return bool(username and password and sender)
+
+
 def _default_role(email: str) -> str:
     owner = _owner_email()
     return "owner" if owner and email.lower() == owner else "analyst"
