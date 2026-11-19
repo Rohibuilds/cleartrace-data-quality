@@ -12,14 +12,15 @@
 
 ## Confirmed public behavior
 
-The latest recorded deployment verification found:
+The latest deployment verification (v2.3.2) found:
 
 - `/health` returned healthy and storage ready.
 - Protected quality APIs rejected anonymous requests.
-- The no-login synthetic sample workspace opened and supported the sample quality workflow.
+- The no-login synthetic sample workspace opened; the quality score endpoint returned 93.8/A.
 - The sample's score endpoint returned 93.8/100, Grade A, at that point in time.
 - Upload from the public judge workspace was rejected.
-- SMTP delivery, owner alerts, and Google sign-in were reported off.
+- SMTP delivery, owner alerts, and Google sign-in are off.
+- The login UI/API explain that OTP mail is unavailable and point users to the sample workspace.
 
 See `TEST_REPORT.md` for the deployment revision/date and verification scope. These values can change after subsequent deployments or variable edits.
 
@@ -33,8 +34,8 @@ A mobile screenshot showed the user-entered email request failing with a generic
 - [x] Synthetic judge preview is documented as the public path.
 - [x] Mobile service-worker cache name is advanced with the login UI update.
 - [x] Automated tests, JavaScript syntax, and Bandit scan run against the updated source (see `TEST_REPORT.md`).
-- [ ] Push the reviewed release to the public GitHub branch.
-- [ ] Deploy the reviewed source revision to Railway and verify `/health`, auth status, and the phone login screen.
+- [x] Push the reviewed release (`2632d3d`) to the public GitHub main branch.
+- [x] Deploy the reviewed source revision to Railway (`53f85fd7-c0ac-4a5b-88e1-3a49e06093c4`) and verify `/health`, auth status, the OTP response, judge sample score, and updated PWA assets.
 - [ ] Add `CLEARTRACE_SMTP_PASSWORD` and confirm one live OTP email and owner alert without exposing the credential.
 - [ ] Configure/test Google OIDC if that login option is required.
 - [ ] Record and verify a public demo video link if required by the submission.

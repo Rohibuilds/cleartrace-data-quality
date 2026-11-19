@@ -326,12 +326,12 @@ story.append(PageBreak())
 
 # 9
 story += [P("9. Current release and known limits", "H1CT"),
-          P("The repository verification report records a 79-test pass on source revision 12c82c0 (20 November 2026). The current source has since received the login-availability fix described below; its rerun result is 80 passing tests. The earlier live deployment record reports ClearTrace v2.3.1 healthy and the public sample score endpoint returning 93.8 / 100. The source fix prepares v2.3.2; deployment confirmation must be checked after publishing this revision.")]
+          P("The current source revision 2632d3d passed 80 automated tests (20 November 2026). It is deployed to Railway as v2.3.2 in deployment 53f85fd7-c0ac-4a5b-88e1-3a49e06093c4, reported SUCCESS. Live checks found /health healthy, the no-login synthetic sample available with a score of 93.8 / 100, and the updated login/PWA assets present.")]
 story.append(data_table(["Status", "Detail"], [
     ["Verified source checks", "80 tests passing after the login setup feedback change; JavaScript syntax and diff checks pass; Bandit found no enabled issues in server.py and auth.py (one intentional 0.0.0.0 bind warning)."],
-    ["Earlier live baseline", "Railway deployment f4c7e0d8 reported success; /health healthy; protected API returned 401 without a session; public synthetic sample opened and scored 93.8/A; sample upload was blocked."],
+    ["Live release", "Railway deployment 53f85fd7 reports success at v2.3.2; /health is healthy; the sample workspace returns 93.8/A; protected APIs require a session."],
     ["OTP/owner alerts", "Not working live until SMTP settings including CLEARTRACE_SMTP_PASSWORD are present and a real email is delivered. The mobile screenshot showed the resulting send failure."],
-    ["Fix prepared", "API now reports mail setup unavailable before attempting OTP; login UI will show that status, disable the unavailable email action, and point users to the no-login sample. PWA cache version is advanced to refresh mobile users."],
+    ["Fix deployed", "API reports mail setup unavailable before attempting OTP; login UI displays the state, disables the unavailable email action, and points users to the no-login sample. PWA cache version is advanced to refresh mobile users."],
     ["Google sign-in", "Optional; no live OAuth credentials, so disabled/not verified."],
     ["Not included", "SAML, SCIM, multi-organization tenancy, formal compliance certification, independent security audit, SMS alerts, native iOS/Android binaries."],
     ["Production readiness", "For a real customer rollout add shared/managed session storage, tested backup and key rotation/recovery, retention/deletion controls, monitoring, stricter abuse throttles, tenant policy controls, and an independent security review."],

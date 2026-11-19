@@ -1,75 +1,57 @@
-# ClearTrace — Verification Report
+# ClearTrace Verification Report
 
 **Verification date:** 20 November 2026 (Asia/Kolkata)
-
-**Source revision tested:** `12c82c0`
-
+**Source revision tested:** `2632d3d`
+**Deployed release:** `v2.3.2`, Railway deployment `53f85fd7-c0ac-4a5b-88e1-3a49e06093c4` (`SUCCESS`)
 **Runtime:** Python 3.9.6, Pytest 8.4.2, Node 26.13.1
 
-**Automated result:** 79 passed, 0 failed, 0 skipped (1.69 seconds)
-**Static security scan:** Bandit found 0 enabled issues in `server.py` and `cleartrace/auth.py`.
+## Automated checks
 
-## Test suite breakdown
+**Result:** 80 passed, 0 failed, 0 skipped (1.47 seconds).
+**JavaScript:** `node --check static/app.js` and `node --check static/sw.js` passed.
+**Static scan:** Bandit reported no enabled findings in `server.py` and `cleartrace/auth.py`; it emitted the expected suppression warning for B104 on the container's `0.0.0.0` bind.
 
 | Test file | Tests | Result |
 | --- | ---: | --- |
 | `tests/test_adversarial.py` | 9 | Pass |
 | `tests/test_api.py` | 13 | Pass |
 | `tests/test_cleartrace.py` | 8 | Pass |
-| `tests/test_cloud_deployment.py` | 12 | Pass |
+| `tests/test_cloud_deployment.py` | 13 | Pass |
 | `tests/test_cloudflare_tunnel_proxy.py` | 8 | Pass |
 | `tests/test_math_intelligence_advanced.py` | 8 | Pass |
 | `tests/test_mentor_round.py` | 12 | Pass |
 | `tests/test_persistence.py` | 9 | Pass |
-| **Total** | **79** | **79 passed** |
+| **Total** | **80** | **80 passed** |
 
-The shared `tests/conftest.py` selects explicit local open mode for tests that exercise unrelated API behavior. `tests/test_cloud_deployment.py` separately switches auth on for email OTP and judge-workspace checks. The configured production default remains authentication required.
+Tests cover data ingestion, deterministic quality checks, math validation, review/apply/undo, exports, revision guards, encryption/tamper detection, API protections, OTP behavior with SMTP mocked, the new unconfigured-mail response, OIDC behavior with provider exchange mocked, role enforcement, and PWA cache headers. Mocked provider tests do not prove real email or Google sign-in.
 
-## Coverage exercised
+## Live Railway verification
 
-- Data ingestion, deterministic quality checks, math validation, repair proposals, approvals, undo/reset, exports, and revision handling.
-- Session persistence encryption, rehydration, tamper detection, session separation, upload bounds, and injection handling.
-- CSRF and reverse-proxy handling, cache policy, API response behavior, and session-isolation guards.
-- Email-code flow with SMTP mocked in tests, plus unauthorized API blocking and isolated synthetic judge preview behavior.
-- Google OIDC state/callback flow with provider exchange mocked; owner role assignment, viewer write restrictions, and owner-alert triggers are tested with mail mocked.
-- Service worker cache version and PWA manifest headers.
-
-## Production verification
-
-Verified on `https://cleartrace-web-production.up.railway.app/` after Railway deployment `f4c7e0d8-1fc6-4b2c-b331-83784ac39032` reported `SUCCESS` (ClearTrace v2.3.1):
+Service: [https://cleartrace-web-production.up.railway.app/](https://cleartrace-web-production.up.railway.app/)
+Deployment: `53f85fd7-c0ac-4a5b-88e1-3a49e06093c4` reported `SUCCESS`.
 
 | Check | Result |
 | --- | --- |
-| `GET /health` | 200; healthy, storage ready, v2.3.1 |
-| `GET /api/auth/status` without a session | 200; auth required, unauthenticated |
-| Protected quality API without a session | 401 |
-| `POST /api/auth/public-demo` | 200; sample workspace issued |
-| `GET /api/auth/status` integration flags | SMTP delivery off; owner alerts off; Google OIDC off (provider variables absent) |
-| Judge workspace auth status | 200; public demo session active |
-| `GET /api/quality/score` in judge workspace | 200; score 93.8, grade A |
-| File upload from judge workspace | 403; blocked as intended |
+| `GET /health` | 200; healthy, storage ready, version 2.3.2 |
+| `GET /api/auth/status` | 200; auth required; not signed in; SMTP, owner alerts, Google sign-in all off |
+| `POST /api/auth/request-code` with synthetic test address | 503 with the new actionable setup message; no real email attempted |
+| `POST /api/auth/public-demo` | 200; temporary sample workspace issued |
+| Judge workspace `/api/auth/status` | 200; public sample session active |
+| Judge workspace `GET /api/quality/score` | 200; 93.8/100, Grade A |
+| `GET /static/app.js` | 200; updated unavailable-mail message present |
+| `GET /sw.js` | 200; `cleartrace-shell-v2.3.2` present for PWA cache refresh |
 
-The deployed UI was opened and the no-sign-in judge option was exercised in a browser. The sample workspace loaded its synthetic dataset and quality dashboard.
+The first public-demo probe used an incorrect cookie-jar setup and returned 401 for the score request. It was repeated with one persistent cookie jar; the demo status and score then returned 200 as expected.
 
-## Security scan and limitations
+## OTP incident and current status
 
-Bandit reported no enabled issues. One `B104` check is explicitly suppressed at the server's `0.0.0.0` bind, required for the container to accept Railway traffic. The report does not claim an independent security audit or formal compliance certification.
+A phone screenshot showed the sign-in form submitting an email address and returning “We could not send the sign-in email.” The prior Railway status check showed `CLEARTRACE_SMTP_PASSWORD` absent, so the service had no Gmail SMTP password and could not send OTP mail. This was not a problem with the submitted email address.
 
-The deployed Railway service reports `smtp_delivery_enabled=false`, `owner_alerts_enabled=false`, and `google_sign_in_enabled=false`. The app code adds email OTP, owner sign-in and repeated-failure alerts, owner-managed account roles, and optional Google OIDC. No Gmail app password or Google OAuth client credentials were supplied; therefore live provider checks cannot be performed. The previous `CLEARTRACE_ACCESS_TOKEN` setting remains absent. Therefore:
+In revision `2632d3d`, the auth status and request endpoint use one SMTP-configuration check. When mail is unavailable, the API returns a clear 503 response before issuing a challenge; the login UI displays the unavailable state, disables the unusable email action, and points to the public synthetic sample. The fix is deployed and the live API/UI assets were verified. It improves the failure path; it does not enable email delivery.
 
-- The no-sign-in judge preview is available and verified.
-- Personal email-code delivery and owner alerts are **not usable yet** until `CLEARTRACE_SMTP_PASSWORD` and `CLEARTRACE_OWNER_EMAIL` are configured in Railway and a live email is confirmed.
-- SMTP and Google token exchange were mocked for unit tests; no real email or Google OAuth sign-in was performed.
-- Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI; its live sign-in is not verified. It is not SAML/SCIM enterprise provisioning.
-- Role and workspace membership behavior is covered locally: assigning an account joins the owner's shared workspace, viewer mutations are rejected, and removing access restores the account's personal workspace. The new shared-role workflow is deployed; exercising it live requires a functioning personal email login.
+## Limitations and pending provider verification
 
-## Reproduce locally
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python -m pytest -q
-.venv/bin/bandit -r server.py cleartrace
-node --check static/app.js
-node --check static/sw.js
-```
+- **Personal email OTP and owner email alerts are still unavailable** until `CLEARTRACE_SMTP_PASSWORD` is entered in Railway Variables and a real message is tested. Do not share the app password in chat or source control.
+- Google OIDC is off until Google OAuth client credentials and the matching callback are configured and live-tested.
+- Organization role behavior has automated coverage, but live member sign-in requires working email OTP.
+- This is not an independent security audit, a compliance certification, or a production multi-tenant SaaS approval. See `SECURITY.md` and `RELEASE_READINESS.md`.
