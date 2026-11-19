@@ -7,6 +7,7 @@ DoS file bounds, security headers, CORS policies, and stale revision guards.
 from __future__ import annotations
 
 import io
+import os
 import pytest
 from fastapi.testclient import TestClient
 
@@ -202,7 +203,8 @@ def test_api_encrypted_persistence_rehydration():
     assert res_upload.status_code == 200
 
     # Verify file is stored encrypted on disk
-    enc_file = Path(".data/sessions") / f"{token}.enc"
+    storage_root = Path(os.environ["CLEARTRACE_DATA_DIR"])
+    enc_file = storage_root / "sessions" / f"{token}.enc"
     assert enc_file.exists()
     disk_bytes = enc_file.read_bytes()
     assert b"INV-PERSIST-1" not in disk_bytes  # Confirms AES-256-GCM encryption
