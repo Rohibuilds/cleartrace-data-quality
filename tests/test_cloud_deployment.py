@@ -84,11 +84,6 @@ def test_auth_with_email_one_time_code(monkeypatch):
     assert res_auth.json()["role"] == "analyst"
     assert client.get("/api/quality/score").status_code == 200
 
-    # Role assignment is persisted; viewers cannot mutate private datasets.
-    assert auth_module.set_user_role("judge@example.com", "viewer")
-    assert client.post("/api/dataset/upload", files={"file": ("data.csv", io.BytesIO(b"a\n1\n"), "text/csv")}).status_code == 403
-
-
 def test_google_oidc_state_is_single_use_and_callback_sets_session(monkeypatch):
     import cleartrace.auth as auth_module
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
@@ -126,11 +121,25 @@ def test_owner_role_assignment_requires_owner(monkeypatch):
     client.post("/api/auth/request-code", json={"email": "owner@example.com"})
     assert client.post("/api/auth/verify", json={"email": "owner@example.com", "code": sent["code"]}).status_code == 200
     owner_session = client.cookies.get("ct_auth_session")
+    owner_workspace = auth_module.get_user(owner_session)["workspace_id"]
     client.post("/api/auth/request-code", json={"email": "member@example.com"})
     client.post("/api/auth/verify", json={"email": "member@example.com", "code": sent["code"]})
+    member_session = client.cookies.get("ct_auth_session")
+    personal_workspace = auth_module.get_user(member_session)["workspace_id"]
+    assert personal_workspace != owner_workspace
     client.cookies.clear()
     client.cookies.set("ct_auth_session", owner_session, domain="testserver.local", path="/")
     assert client.post("/api/auth/role", json={"email": "member@example.com", "role": "viewer"}).status_code == 200
+    shared_member = auth_module.get_user(member_session)
+    assert shared_member["role"] == "viewer"
+    assert shared_member["workspace_id"] == owner_workspace
+    client.cookies.clear()
+    client.cookies.set("ct_auth_session", member_session, domain="testserver.local", path="/")
+    assert client.post("/api/dataset/upload", files={"file": ("data.csv", io.BytesIO(b"a\n1\n"), "text/csv")}).status_code == 403
+    client.cookies.clear()
+    client.cookies.set("ct_auth_session", owner_session, domain="testserver.local", path="/")
+    assert client.post("/api/auth/role", json={"email": "member@example.com", "role": "remove"}).status_code == 200
+    assert auth_module.get_user(member_session)["workspace_id"] == personal_workspace
 
 
 def test_owner_security_alerts_cover_login_and_repeated_bad_codes(monkeypatch):

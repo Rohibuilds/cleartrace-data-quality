@@ -12,13 +12,13 @@ The application creates anonymous session identifiers and can encrypt persisted 
 
 The owner receives an email for each successful sign-in and after an account reaches the five-attempt invalid-code limit. Alerts contain the account email, UTC timestamp, role, and a truncated keyed network fingerprint; SMTP failures are recorded in service logs and never claimed as delivered. Google sign-in is optional: configure `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL`; register `<CLEARTRACE_PUBLIC_URL>/api/auth/google/callback` as an authorized redirect URI in Google Cloud. The flow checks single-use state, the Google signature, issuer, audience, expiry, and verified email. The Google callback is social/workspace OIDC, not a complete enterprise identity-management suite.
 
-Roles are `owner`, `admin`, `analyst`, and `viewer`. Only the configured owner can assign a role to an account that has already signed in; viewer accounts cannot upload, edit/approve/reject repairs, reset, restore, or edit math rules. Individual user workspaces remain isolated. There is no shared organization workspace, SAML, SCIM, or managed team provisioning in this release.
+Roles are `owner`, `admin`, `analyst`, and `viewer`. Only the configured owner can assign or remove access for an account that has already signed in. Assignment joins the account to the owner's shared organization workspace; members can access shared datasets according to their role. Removing access restores the account's own workspace. Viewer accounts cannot upload, apply repairs, reset, restore, or edit math rules. This deployment supports one owner-managed organization; SAML, SCIM, multi-organization tenancy, and managed team provisioning are not included.
 
 ## Production requirements
 
 Before inviting general users or processing confidential datasets, add and independently review:
 
-- Shared organization workspaces, SAML/SCIM, and administrator-managed tenant policies.
+- Multi-organization tenancy, SAML/SCIM, and administrator-managed tenant policies.
 - Rate limits and abuse controls for login, uploads, scans, and repairs.
 - Bounded, shared session storage with expiration and deletion policies.
 - Security event logging and delivery monitoring, without logging credentials or dataset contents.

@@ -173,7 +173,7 @@ CLEARTRACE_MAX_UPLOAD_MB=15
 
 With SMTP configured, the owner receives sign-in notices and alerts after five failed code attempts. Google login appears only when both Google client variables are configured. In Google Cloud, add `https://cleartrace-web-production.up.railway.app/api/auth/google/callback` as an authorized redirect URI (replace the host if your public URL differs). Never place the client secret or app password in Git or chat.
 
-The owner can assign `viewer`, `analyst`, or `admin` roles in Settings to an account that has signed in at least once. A viewer is read-only for dataset uploads, repairs, reset/restore, and math rule edits. Accounts continue to have separate private workspaces; these roles do not create shared organization data, SAML, or SCIM.
+The owner can assign `viewer`, `analyst`, or `admin` roles in Settings to an account that has signed in at least once. Assignment adds the account to the owner's shared organization workspace. A viewer is read-only for dataset uploads, repairs, reset/restore, and math rule edits. **Organization members can access the shared workspace's data according to their role.** “Remove access” returns the member to their previous private workspace. This release supports one owner-managed organization per deployment; it does not include SAML, SCIM, or multi-organization policies.
 
 #### Step 3: Attach Railway Persistent Volume
 1. In the service view, click **+ Add Volume** (or go to **Settings** $\rightarrow$ **Volumes**).

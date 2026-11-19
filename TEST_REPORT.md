@@ -61,7 +61,7 @@ The deployed Railway service reports `smtp_delivery_enabled=false`, `owner_alert
 - Personal email-code delivery and owner alerts are **not usable yet** until `CLEARTRACE_SMTP_PASSWORD` and `CLEARTRACE_OWNER_EMAIL` are configured in Railway and a live email is confirmed.
 - SMTP and Google token exchange were mocked for unit tests; no real email or Google OAuth sign-in was performed.
 - Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI; its live sign-in is not verified. It is not SAML/SCIM enterprise provisioning.
-- Roles operate on accounts in this deployment; personal workspaces remain isolated. Shared organization workspaces and team data access are not implemented.
+- Role and workspace membership behavior is covered locally: assigning an account joins the owner's shared workspace, viewer mutations are rejected, and removing access restores the account's personal workspace. Shared-workspace behavior is not yet verified on Railway until the latest code revision is deployed.
 
 ## Reproduce locally
 

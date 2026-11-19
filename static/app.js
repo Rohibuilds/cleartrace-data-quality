@@ -1331,11 +1331,11 @@ function renderSettings() {
           <div id="ct-account-summary" style="font-size:0.8rem;color:var(--ct-navy-500);margin-top:6px;">Checking your verified account…</div>
           <form id="ct-role-form" hidden style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:12px;">
             <input id="ct-role-email" type="email" maxlength="254" required placeholder="Existing account email" aria-label="Existing account email" style="min-width:0;padding:9px 10px;border:1px solid var(--ct-navy-200);border-radius:7px;background:var(--ct-surface);color:var(--ct-navy-900);">
-            <select id="ct-role-value" aria-label="Account role" style="padding:9px 10px;border:1px solid var(--ct-navy-200);border-radius:7px;background:var(--ct-surface);color:var(--ct-navy-900);"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option></select>
+            <select id="ct-role-value" aria-label="Organization role" style="padding:9px 10px;border:1px solid var(--ct-navy-200);border-radius:7px;background:var(--ct-surface);color:var(--ct-navy-900);"><option value="viewer">Viewer</option><option value="analyst">Analyst</option><option value="admin">Admin</option><option value="remove">Remove access</option></select>
             <button class="btn btn-secondary btn-sm" type="submit">Assign</button>
           </form>
           <div id="ct-role-result" role="status" style="font-size:0.78rem;margin-top:6px;"></div>
-          <div style="font-size:0.73rem;color:var(--ct-navy-500);margin-top:8px;line-height:1.5;">Roles apply to account permissions in this deployment. ClearTrace currently keeps each personal dataset workspace private; assigning a role does not share its data.</div>
+          <div style="font-size:0.73rem;color:var(--ct-navy-500);margin-top:8px;line-height:1.5;">Assigning a role adds that signed-in account to the owner’s shared organization workspace. Members can access its datasets according to their role. “Remove access” restores that account’s private workspace.</div>
         </div>
 
         <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--ct-navy-100);">
@@ -1392,8 +1392,9 @@ function renderSettings() {
       summary.textContent = status.is_authenticated
         ? `${status.email || 'Verified account'} · ${status.role || 'member'} role · Owner alerts ${status.owner_alerts_enabled ? 'on' : 'not configured'}${status.google_sign_in_enabled ? ' · Google sign-in on' : ''}`
         : (status.is_public_demo ? 'Temporary sample workspace · no personal account signed in' : 'No signed-in account');
-      if (status.role === 'owner') {
+      if (status.role === 'owner' || status.role === 'admin') {
         const form = document.getElementById('ct-role-form');
+        if (status.role === 'admin') form.querySelector('option[value="admin"]').remove();
         form.hidden = false;
         form.style.display = 'grid';
         form.addEventListener('submit', async event => {

@@ -71,7 +71,7 @@ For hosted deployments, configure these values in the provider's secret manager.
 - **iPhone:** open the HTTPS demo in Safari, tap **Share**, then **Add to Home Screen**.
 - **Android:** open the HTTPS demo in Chrome and choose **Install app** from the browser menu.
 
-The cached offline shell can launch the interface, but sign-in, uploads, and API operations need an internet connection. Email OTP creates an individual email identity and persistent workspace. Google OpenID Connect sign-in and owner-managed account roles can be enabled with the deployment settings in [DEPLOYMENT.md](DEPLOYMENT.md). Role permissions do not currently create shared organization workspaces; each account's dataset remains isolated.
+The cached offline shell can launch the interface, but sign-in, uploads, and API operations need an internet connection. Email OTP creates an individual email identity and persistent workspace. Google OpenID Connect sign-in and owner-managed organization roles can be enabled with the deployment settings in [DEPLOYMENT.md](DEPLOYMENT.md). Assigning a role adds that signed-in account to the shared organization workspace; removing access restores the user's private workspace.
 
 ## Architecture
 
@@ -87,7 +87,7 @@ The cached offline shell can launch the interface, but sign-in, uploads, and API
 
 ## Security and known limits
 
-ClearTrace uses short-lived, single-use email codes for sign-in and keeps account workspaces isolated. When SMTP is configured, the configured owner receives email notices for successful sign-ins and repeated invalid code attempts. Google OIDC is optional and requires a configured OAuth client. Owner-managed roles limit viewer mutations and protect role assignment. These account roles do not yet provide shared organization data, SAML federation, SCIM provisioning, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
+ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. When SMTP is configured, the owner receives email notices for successful sign-ins and repeated invalid code attempts. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
 
 Before handling confidential or regulated data, a production operator should add managed identity, per-user authorization and isolation, rate limiting, bounded shared session storage, backup and retention policies, and independent security review. Read [SECURITY.md](SECURITY.md) and the deployment checklist before exposing a new instance.
 

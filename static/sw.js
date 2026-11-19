@@ -1,7 +1,7 @@
-// ClearTrace PWA Service Worker v2.3.0
+// ClearTrace PWA Service Worker v2.3.1
 // Strict Security Architecture: Shell assets cached, zero customer data caching.
 
-const CACHE_NAME = 'cleartrace-shell-v2.3.0';
+const CACHE_NAME = 'cleartrace-shell-v2.3.1';
 
 const STATIC_ASSETS = [
   '/',

@@ -77,6 +77,18 @@ def _connect() -> sqlite3.Connection:
     if "role" not in columns:
         db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'analyst'")
     db.executescript("""
+        CREATE TABLE IF NOT EXISTS organizations (
+            organization_id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL UNIQUE,
+            owner_user_key TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS organization_members (
+            user_key TEXT PRIMARY KEY,
+            organization_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            joined_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS login_events (
             user_key TEXT NOT NULL, ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL
         );
@@ -152,15 +164,44 @@ def get_role(session_token: str | None) -> str | None:
 
 
 def set_user_role(email: str, role: str) -> bool:
-    if role not in {"owner", "admin", "analyst", "viewer"}:
-        raise ValueError("Role must be owner, admin, analyst, or viewer.")
+    if role not in {"owner", "admin", "analyst", "viewer", "remove"}:
+        raise ValueError("Role must be owner, admin, analyst, viewer, or remove.")
     normalized_email = email.strip().lower()
     if role == "owner" and normalized_email != _owner_email():
         raise ValueError("The deployment owner is fixed by CLEARTRACE_OWNER_EMAIL and cannot be reassigned.")
     db = _connect()
     try:
-        cur = db.execute("UPDATE users SET role=? WHERE user_key=?", (role, _email_key(normalized_email)))
-        return cur.rowcount == 1
+        owner_key, target_key = _email_key(_owner_email()), _email_key(normalized_email)
+        db.execute("BEGIN IMMEDIATE")
+        owner = db.execute("SELECT workspace_id FROM users WHERE user_key=?", (owner_key,)).fetchone()
+        target = db.execute("SELECT user_key FROM users WHERE user_key=?", (target_key,)).fetchone()
+        if not owner or not target:
+            db.rollback()
+            return False
+        if target_key == owner_key:
+            if role != "owner":
+                raise ValueError("The configured organization owner cannot be changed or removed.")
+            db.execute("UPDATE users SET role='owner' WHERE user_key=?", (owner_key,))
+            db.commit()
+            return True
+        organization = db.execute("SELECT organization_id FROM organizations WHERE owner_user_key=?", (owner_key,)).fetchone()
+        if role == "remove":
+            if organization:
+                db.execute("DELETE FROM organization_members WHERE user_key=? AND organization_id=?", (target_key, organization["organization_id"]))
+            db.commit()
+            return True
+        if role == "owner":
+            raise ValueError("Only the configured owner can hold the owner role.")
+        if not organization:
+            organization_id = secrets.token_hex(16)
+            db.execute("INSERT INTO organizations(organization_id,workspace_id,owner_user_key,created_at) VALUES(?,?,?,?)",
+                (organization_id, owner["workspace_id"], owner_key, int(time.time())))
+            organization = {"organization_id": organization_id}
+        db.execute("INSERT INTO organization_members(user_key,organization_id,role,joined_at) VALUES(?,?,?,?) "
+            "ON CONFLICT(user_key) DO UPDATE SET organization_id=excluded.organization_id,role=excluded.role,joined_at=excluded.joined_at",
+            (target_key, organization["organization_id"], role, int(time.time())))
+        db.commit()
+        return True
     finally:
         db.close()
 
@@ -440,15 +481,18 @@ def get_user(session_token: str | None) -> dict[str, str] | None:
     try:
         now = int(time.time())
         row = db.execute(
-            "SELECT u.email_ciphertext,u.workspace_id,u.role FROM auth_sessions s JOIN users u ON u.user_key=s.user_key "
+            "SELECT u.email_ciphertext,COALESCE(o.workspace_id,u.workspace_id) AS effective_workspace,"
+            "COALESCE(m.role,u.role) AS effective_role FROM auth_sessions s JOIN users u ON u.user_key=s.user_key "
+            "LEFT JOIN organization_members m ON m.user_key=u.user_key "
+            "LEFT JOIN organizations o ON o.organization_id=m.organization_id "
             "WHERE s.token_hash=? AND s.expires_at>?",
             (_digest(session_token, b"session:"), now),
         ).fetchone()
         if not row:
             return None
         email = _decrypt_email(row["email_ciphertext"])
-        role = "owner" if _owner_email() and email == _owner_email() else row["role"]
-        return {"email": email, "workspace_id": row["workspace_id"], "role": role}
+        role = "owner" if _owner_email() and email == _owner_email() else row["effective_role"]
+        return {"email": email, "workspace_id": row["effective_workspace"], "role": role}
     finally:
         db.close()
 

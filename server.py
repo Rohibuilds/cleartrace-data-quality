@@ -58,7 +58,7 @@ logger = logging.getLogger("cleartrace.server")
 
 app = FastAPI(
     title="ClearTrace API",
-    version="2.3.0",
+    version="2.3.1",
     description="Autonomous Data Quality and Traceable Repair Engine",
 )
 
@@ -447,7 +447,7 @@ def health_probe() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.0",
+        "version": "2.3.1",
         "storage": "ready" if storage_ready else "unmounted",
         "llm": "direct-evidence",
     }
@@ -462,7 +462,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.0",
+        "version": "2.3.1",
         "session_active": has_session,
         "dataset_loaded": sm.filename if sm else None,
         "dataset_revision": sm.dataset_revision if sm else 0,
@@ -585,8 +585,10 @@ class RoleUpdateRequest(BaseModel):
 def update_account_role(payload: RoleUpdateRequest, request: Request):
     """Owner-only account role assignment for the current deployment workspace."""
     actor = get_user(request.cookies.get("ct_auth_session"))
-    if not actor or actor.get("role") != "owner":
-        raise HTTPException(status_code=403, detail="Only the configured ClearTrace owner can assign account roles.")
+    if not actor or actor.get("role") not in {"owner", "admin"}:
+        raise HTTPException(status_code=403, detail="Only an organization owner or admin can assign account roles.")
+    if actor.get("role") == "admin" and payload.role not in {"viewer", "analyst", "remove"}:
+        raise HTTPException(status_code=403, detail="Admins can add, remove, or change analyst/viewer access. Only the owner can assign admins.")
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", payload.email) or len(payload.email) > 254:
         raise HTTPException(status_code=400, detail="Enter a valid account email.")
     try:
