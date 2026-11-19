@@ -2,7 +2,7 @@
 
 **Verification date:** 20 November 2026 (Asia/Kolkata)
 
-**Source revision tested:** local changes on top of `af5f689` (push/deploy verification pending)
+**Source revision tested:** `84b6933`
 
 **Runtime:** Python 3.9.6, Pytest 8.4.2, Node 26.13.1
 
@@ -36,7 +36,7 @@ The shared `tests/conftest.py` selects explicit local open mode for tests that e
 
 ## Production verification
 
-Verified on `https://cleartrace-web-production.up.railway.app/` after Railway deployment `e40e9e9a-661e-4f51-a031-459fc2f5c5f8` reported `SUCCESS`:
+Verified on `https://cleartrace-web-production.up.railway.app/` after Railway deployment `0a57127a-3478-448c-a31a-704c6dab9cdb` reported `SUCCESS`:
 
 | Check | Result |
 | --- | --- |
@@ -44,6 +44,7 @@ Verified on `https://cleartrace-web-production.up.railway.app/` after Railway de
 | `GET /api/auth/status` without a session | 200; auth required, unauthenticated |
 | Protected quality API without a session | 401 |
 | `POST /api/auth/public-demo` | 200; sample workspace issued |
+| `GET /api/auth/status` integration flags | SMTP delivery off; owner alerts off; Google OIDC off (provider variables absent) |
 | Judge workspace auth status | 200; public demo session active |
 | `GET /api/quality/score` in judge workspace | 200; score 93.8, grade A |
 | File upload from judge workspace | 403; blocked as intended |
@@ -54,12 +55,12 @@ The deployed UI was opened and the no-sign-in judge option was exercised in a br
 
 Bandit reported no enabled issues. One `B104` check is explicitly suppressed at the server's `0.0.0.0` bind, required for the container to accept Railway traffic. The report does not claim an independent security audit or formal compliance certification.
 
-At the prior Railway verification the service included the Gmail sender and SMTP host/port, but **did not include `CLEARTRACE_SMTP_PASSWORD`**. The shared `CLEARTRACE_ACCESS_TOKEN` setting was absent. For this feature revision, the app code adds email OTP, owner sign-in and repeated-failure alerts, owner-managed account roles, and optional Google OIDC. Railway deploy and real provider checks remain pending because access to Railway's API is currently failing DNS resolution; the new app code is not yet confirmed live. No password or Google OAuth credentials are available in the workspace. Therefore:
+The deployed Railway service reports `smtp_delivery_enabled=false`, `owner_alerts_enabled=false`, and `google_sign_in_enabled=false`. The app code adds email OTP, owner sign-in and repeated-failure alerts, owner-managed account roles, and optional Google OIDC. No Gmail app password or Google OAuth client credentials were supplied; therefore live provider checks cannot be performed. The previous `CLEARTRACE_ACCESS_TOKEN` setting remains absent. Therefore:
 
 - The no-sign-in judge preview is available and verified.
-- Personal email-code delivery and owner alerts are **not verified** and will not work until `CLEARTRACE_SMTP_PASSWORD` (and `CLEARTRACE_OWNER_EMAIL`) are configured in Railway and a live email is confirmed.
+- Personal email-code delivery and owner alerts are **not usable yet** until `CLEARTRACE_SMTP_PASSWORD` and `CLEARTRACE_OWNER_EMAIL` are configured in Railway and a live email is confirmed.
 - SMTP and Google token exchange were mocked for unit tests; no real email or Google OAuth sign-in was performed.
-- Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI. It is not SAML/SCIM enterprise provisioning.
+- Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI; its live sign-in is not verified. It is not SAML/SCIM enterprise provisioning.
 - Roles operate on accounts in this deployment; personal workspaces remain isolated. Shared organization workspaces and team data access are not implemented.
 
 ## Reproduce locally
