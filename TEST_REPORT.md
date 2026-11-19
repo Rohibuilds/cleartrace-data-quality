@@ -2,7 +2,7 @@
 
 **Verification date:** 20 November 2026 (Asia/Kolkata)
 
-**Source revision tested:** `84b6933`
+**Source revision tested:** `12c82c0`
 
 **Runtime:** Python 3.9.6, Pytest 8.4.2, Node 26.13.1
 
@@ -36,11 +36,11 @@ The shared `tests/conftest.py` selects explicit local open mode for tests that e
 
 ## Production verification
 
-Verified on `https://cleartrace-web-production.up.railway.app/` after Railway deployment `0a57127a-3478-448c-a31a-704c6dab9cdb` reported `SUCCESS`:
+Verified on `https://cleartrace-web-production.up.railway.app/` after Railway deployment `f4c7e0d8-1fc6-4b2c-b331-83784ac39032` reported `SUCCESS` (ClearTrace v2.3.1):
 
 | Check | Result |
 | --- | --- |
-| `GET /health` | 200; healthy, storage ready |
+| `GET /health` | 200; healthy, storage ready, v2.3.1 |
 | `GET /api/auth/status` without a session | 200; auth required, unauthenticated |
 | Protected quality API without a session | 401 |
 | `POST /api/auth/public-demo` | 200; sample workspace issued |
@@ -61,7 +61,7 @@ The deployed Railway service reports `smtp_delivery_enabled=false`, `owner_alert
 - Personal email-code delivery and owner alerts are **not usable yet** until `CLEARTRACE_SMTP_PASSWORD` and `CLEARTRACE_OWNER_EMAIL` are configured in Railway and a live email is confirmed.
 - SMTP and Google token exchange were mocked for unit tests; no real email or Google OAuth sign-in was performed.
 - Google OIDC requires `CLEARTRACE_GOOGLE_CLIENT_ID`, `CLEARTRACE_GOOGLE_CLIENT_SECRET`, and `CLEARTRACE_PUBLIC_URL` plus the matching Google Console callback URI; its live sign-in is not verified. It is not SAML/SCIM enterprise provisioning.
-- Role and workspace membership behavior is covered locally: assigning an account joins the owner's shared workspace, viewer mutations are rejected, and removing access restores the account's personal workspace. Shared-workspace behavior is not yet verified on Railway until the latest code revision is deployed.
+- Role and workspace membership behavior is covered locally: assigning an account joins the owner's shared workspace, viewer mutations are rejected, and removing access restores the account's personal workspace. The new shared-role workflow is deployed; exercising it live requires a functioning personal email login.
 
 ## Reproduce locally
 
