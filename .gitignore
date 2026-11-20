@@ -12,6 +12,7 @@ storage/
 # Python and editor artifacts
 .venv/
 venv/
+node_modules/
 __pycache__/
 *.py[cod]
 .pytest_cache/
