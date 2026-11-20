@@ -4,7 +4,7 @@
 
 **Current provider status (20 November 2026):** the public synthetic judge workspace is the working no-login path. The most recent Railway status check reported email delivery, owner alerts, and Google sign-in disabled. Do not interpret the implementation or mocked-provider tests as proof of live email/OIDC delivery. OTP UI/API now surfaces missing mail setup before a code request; a real sign-in still requires SMTP configuration and a live test.
 
-The 2.3.5 update clears undelivered OTP challenges and request counts after SMTP failure, allowing a retry after mail service recovers. The owner activity recipient is configured privately in Railway. Delivery remains unavailable until `CLEARTRACE_SMTP_PASSWORD` is added privately and a real message is verified.
+The 2.3.6 update clears undelivered OTP challenges and request counts after SMTP failure, allowing a retry after mail service recovers. The owner activity recipient is configured privately in Railway. Delivery remains unavailable until `CLEARTRACE_SMTP_PASSWORD` is added privately and a real message is verified.
 
 ClearTrace uses email one-time codes for personal workspaces. Codes are single-use, expire after 10 minutes, and have bounded retries and issuance rates. Auth sessions are opaque, revocable server-side records in SQLite; the cookie is HttpOnly and SameSite=Lax, and Secure on HTTPS. Email addresses are encrypted in the auth database and keyed by a keyed digest. User workspaces are keyed to a verified email identity and use the existing encrypted session persistence.
 

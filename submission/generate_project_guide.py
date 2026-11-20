@@ -326,10 +326,10 @@ story.append(PageBreak())
 
 # 9
 story += [P("9. Current release and known limits", "H1CT"),
-          P("Source revision 7bc8e37 is deployed as v2.3.5 in Railway deployment 966b1b26-2c1b-45bd-930b-094596ae126a (SUCCESS). The live health check is healthy and the public synthetic sample returns 93.8/A. Gmail SMTP delivery remains disabled because CLEARTRACE_SMTP_PASSWORD is not configured.")]
+          P("Source revision fa86872 is deployed as v2.3.6 in Railway deployment c67cc07d-3ef4-48f3-b183-dac7a8aa06d2 (SUCCESS). The live health check is healthy and the public synthetic sample returns 93.8/A. Gmail SMTP delivery remains disabled because CLEARTRACE_SMTP_PASSWORD is not configured.")]
 story.append(data_table(["Status", "Detail"], [
-    ["Verified source checks", "82 tests pass after the editable-email and owner-activity notification changes; JavaScript syntax, diff checks, and Bandit pass (one expected 0.0.0.0 bind warning)."],
-    ["Live release", "Railway deployment 966b1b26 reports success at v2.3.5; /health is healthy; the judge sample returns 93.8/A."],
+    ["Verified source checks", "83 tests pass after the editable-email and owner-activity notification changes; JavaScript syntax, diff checks, and Bandit pass (one expected 0.0.0.0 bind warning)."],
+    ["Live release", "Railway deployment c67cc07d reports success at v2.3.6; /health is healthy; the judge sample returns 93.8/A."],
     ["OTP/owner alerts", "Notification code is implemented but cannot deliver until SMTP settings including CLEARTRACE_SMTP_PASSWORD are present and real email is verified."],
     ["Fix deployed", "API reports mail setup unavailable before attempting OTP; the email field stays editable, while the send button remains unavailable until SMTP is configured. PWA cache version is advanced to refresh mobile users."],
     ["Google sign-in", "Optional; no live OAuth credentials, so disabled/not verified."],
@@ -369,7 +369,7 @@ qa2 = [
     ("16. Is Google sign-in enabled?", "Google OIDC is optional in the code, but it is off until the OAuth client ID, secret, public URL, and matching callback are configured. It has not been live-tested in this deployment."),
     ("17. Can a team share a workspace?", "The code supports one owner-managed organization workspace with owner/admin/analyst/viewer roles. Members assigned to that organization share its datasets under role limits. It does not support multiple organizations, SAML, or SCIM."),
     ("18. Is this a phone app?", "It is a responsive installable PWA, so it can be added to an iPhone or Android home screen. It is not a native app-store build. Online data operations still need a network connection."),
-    ("19. How was it tested?", "The updated source passes 82 automated tests, including API, adversarial input, persistence encryption, role restrictions, OTP delivery failure recovery and activity notifications with mocked mail, math rules, and deployment middleware. Mock SMTP tests verify code behavior but do not prove Gmail delivery."),
+    ("19. How was it tested?", "The updated source passes 83 automated tests, including API, adversarial input, persistence encryption, role restrictions, OTP delivery failure recovery and activity notifications with mocked mail, math rules, and deployment middleware. Mock SMTP tests verify code behavior but do not prove Gmail delivery."),
     ("20. What would you build next for production?", "Configure and verify a real mail provider, use managed identity or strong organizational SSO, add multi-tenant policy boundaries, shared bounded session storage, monitored rate limits, tested recovery/retention, and independent security review."),
 ]
 for q, a in qa2:
