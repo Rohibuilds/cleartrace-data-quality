@@ -12,7 +12,7 @@
 
 ## Confirmed public behavior
 
-The latest deployment verification (v2.3.4) found:
+The latest deployment verification (v2.3.5) found:
 
 - `/health` returned healthy and storage ready.
 - Protected quality APIs rejected anonymous requests.
@@ -35,8 +35,9 @@ A mobile screenshot showed the user-entered email request failing with a generic
 - [x] Synthetic judge preview is documented as the public path.
 - [x] Mobile service-worker cache name is advanced with the login UI update.
 - [x] Automated tests, JavaScript syntax, and Bandit scan run against the updated source (see `TEST_REPORT.md`).
-- [x] Push the reviewed release (`83ee6aa`) to the public GitHub main branch.
-- [x] Deploy the reviewed source revision to Railway (`b29f8ed2-b14f-4756-ae27-e488e3e9015a`) and verify `/health`, auth status, editable-email UI assets, updated PWA cache, and the public judge sample.
+- [x] Push the reviewed release (`7bc8e37`) to the public GitHub main branch.
+- [x] Deploy the reviewed source revision to Railway (`966b1b26-2c1b-45bd-930b-094596ae126a`) and verify `/health`, auth status, editable-email UI assets, updated PWA cache, and the public judge sample.
+- [x] Failed SMTP sends clear unusable codes and request counts; 82 automated tests pass.
 - [ ] Add `CLEARTRACE_SMTP_PASSWORD` and confirm one live OTP email and owner alert without exposing the credential.
 - [ ] Configure/test Google OIDC if that login option is required.
 - [ ] Record and verify a public demo video link if required by the submission.

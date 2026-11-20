@@ -87,6 +87,8 @@ The cached offline shell can launch the interface, but sign-in, uploads, and API
 
 ## Security and known limits
 
+If an SMTP send fails, ClearTrace removes that undelivered code and its request count so the account can retry when mail service returns. The owner alert address is configured privately in Railway Variables; real OTP and alert delivery still requires the Gmail app password there.
+
 ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. With Gmail SMTP configured, the owner at `CLEARTRACE_OWNER_EMAIL` receives content-free notices for code requests, successful sign-ins, repeated invalid codes, sign-outs, uploads, sample loads, repair approvals/rejections, undo/reset/restore, rule changes, exports, and role changes. Notices contain the account/role, UTC time, and a truncated keyed network fingerprint; they never include dataset rows or uploaded contents. Delivery is best-effort: SMTP credentials and a live test are required, and failed mail does not undo workspace changes. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
 
 Before handling confidential or regulated data, a production operator should add managed identity, per-user authorization and isolation, rate limiting, bounded shared session storage, backup and retention policies, and independent security review. Read [SECURITY.md](SECURITY.md) and the deployment checklist before exposing a new instance.

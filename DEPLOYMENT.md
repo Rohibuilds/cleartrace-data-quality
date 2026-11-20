@@ -48,7 +48,7 @@ ClearTrace is containerized as a standalone, non-root web service serving both t
 
 ### Current production configuration note
 
-The last recorded check of the public Railway service found `smtp_delivery_enabled=false`, `owner_alerts_enabled=false`, and `google_sign_in_enabled=false`. The current app-password variable was not present at that check. A Gmail app password must be entered privately in Railway Variables as `CLEARTRACE_SMTP_PASSWORD`, followed by a deployment and a real email delivery test. No secret should be committed or sent in chat. The unauthenticated synthetic judge sample remains the demo route while mail is unavailable.
+The 2.3.5 live check found `smtp_delivery_enabled=false`, `owner_alerts_enabled=false`, and `google_sign_in_enabled=false`. The owner recipient variable is set privately in Railway; the Gmail app-password variable is still missing. Enter it privately in Railway Variables as `CLEARTRACE_SMTP_PASSWORD`, then verify a real OTP and owner notice. Failed SMTP sends now clear unusable OTP challenges and request counts. No secret should be committed or sent in chat. The unauthenticated synthetic judge sample remains the demo route while mail is unavailable.
 
 Verify all deployment assets prepared in the repository:
 
