@@ -32,7 +32,7 @@ The product is designed to keep data repair visible and deliberate: findings are
 
 ## Try the deployed demo
 
-Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. On Railway Hobby/Trial, outbound SMTP is blocked, so OTP delivery must use an HTTPS email API. ClearTrace supports Resend through `CLEARTRACE_RESEND_API_KEY` and a verified `CLEARTRACE_EMAIL_FROM` sender. File uploads are limited to verified email workspaces.
+Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. On Railway Hobby/Trial, outbound SMTP is blocked, so OTP delivery must use an HTTPS email API. ClearTrace prefers Brevo through `BREVO_API_KEY` and verified `BREVO_SENDER_EMAIL`; Resend remains the fallback through `CLEARTRACE_RESEND_API_KEY` and `CLEARTRACE_EMAIL_FROM` when Brevo is not configured. File uploads are limited to verified email workspaces.
 
 Use synthetic or non-sensitive data for the public demo. The current deployment is a controlled demonstration, not a multi-tenant commercial service.
 
@@ -48,17 +48,17 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-For Railway and other hosts that restrict SMTP, configure Resend (or use local Gmail SMTP for development). Store credentials only in a secret manager:
+For Railway and other hosts that restrict SMTP, configure Brevo (or Resend as fallback). Store credentials only in a secret manager:
 
 ```bash
-export CLEARTRACE_RESEND_API_KEY="re_..."
-export CLEARTRACE_EMAIL_FROM="ClearTrace <verified-sender@your-domain.example>"
+export BREVO_API_KEY="..."
+export BREVO_SENDER_EMAIL="verified-sender@your-domain.example"
 export CLEARTRACE_OWNER_EMAIL="owner@example.com"
 export CLEARTRACE_AUTH_ENABLED=true
 python run.py
 ```
 
-For local development only, `CLEARTRACE_SMTP_USERNAME`, `CLEARTRACE_SMTP_PASSWORD`, and `CLEARTRACE_SMTP_FROM` can be used when outbound SMTP is available. A Gmail app password does not bypass Railway's SMTP network restriction.
+If Brevo is not configured, Resend can be used with `CLEARTRACE_RESEND_API_KEY` and `CLEARTRACE_EMAIL_FROM`. For local development only, `CLEARTRACE_SMTP_USERNAME`, `CLEARTRACE_SMTP_PASSWORD`, and `CLEARTRACE_SMTP_FROM` can be used when outbound SMTP is available. A Gmail app password does not bypass Railway's SMTP network restriction.
 
 Open `http://127.0.0.1:8000`. To start the companion Streamlit studio instead:
 

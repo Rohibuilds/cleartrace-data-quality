@@ -2,13 +2,13 @@
 
 ## Demo deployment
 
-**Current provider status (20 November 2026):** the public synthetic judge workspace is the working no-login path. Railway Hobby/Trial blocks outbound SMTP, so a Gmail app password alone cannot enable deployed email. Use the Resend HTTPS API with a valid API key and verified sender, then verify a real message. Mocked-provider tests are not proof of live delivery.
+**Email provider setup:** Railway Hobby/Trial blocks outbound SMTP, so a Gmail app password alone cannot enable deployed email. Brevo is preferred with `BREVO_API_KEY` and verified `BREVO_SENDER_EMAIL`. Resend remains a fallback when Brevo is not configured, using `CLEARTRACE_RESEND_API_KEY` and verified `CLEARTRACE_EMAIL_FROM`. A configured provider error is a failed OTP request; it is never reported as sent.
 
-The current update clears undelivered OTP challenges and request counts after a send failure, allowing a retry after mail service recovers. Configure `CLEARTRACE_RESEND_API_KEY`, `CLEARTRACE_EMAIL_FROM`, and `CLEARTRACE_OWNER_EMAIL` privately in Railway. SMTP is retained for local/eligible deployments only.
+Undelivered OTP challenges and request counts are cleared after a send failure, allowing a retry after mail service recovers. Configure provider secrets and `CLEARTRACE_OWNER_EMAIL` privately in Railway. SMTP is retained for local/eligible deployments only.
 
 ClearTrace uses email one-time codes for personal workspaces. Codes are single-use, expire after 10 minutes, and have bounded retries and issuance rates. Auth sessions are opaque, revocable server-side records in SQLite; the cookie is HttpOnly and SameSite=Lax, and Secure on HTTPS. Email addresses are encrypted in the auth database and keyed by a keyed digest. User workspaces are keyed to a verified email identity and use the existing encrypted session persistence.
 
-The no-sign-in judge preview is isolated, uses synthetic sample data, and expires after eight hours. Judges can explore and apply repairs to that temporary sample workspace; file uploads are blocked. Configure Resend in Railway with `CLEARTRACE_RESEND_API_KEY`, `CLEARTRACE_EMAIL_FROM` (verified sender), and `CLEARTRACE_OWNER_EMAIL`. Keep all secrets in Railway Variables, never in the repository. `CLEARTRACE_AUTH_ALLOWED_EMAILS` can optionally restrict sign-in; leave it unset for judge self-service.
+The no-sign-in judge preview is isolated, uses synthetic sample data, and expires after eight hours. Judges can explore and apply repairs to that temporary sample workspace; file uploads are blocked. Configure Brevo in Railway with `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (verified sender), and `CLEARTRACE_OWNER_EMAIL`. Keep all secrets in Railway Variables, never in the repository. `CLEARTRACE_AUTH_ALLOWED_EMAILS` can optionally restrict sign-in; leave it unset for judge self-service.
 
 The OTP database and its private auth key must live on the persistent `/data` volume. The generated local key is stored with mode 0600. Use HTTPS and keep the volume attached across deploys. Failed or unconfigured notifications must not be interpreted as an alert being delivered.
 

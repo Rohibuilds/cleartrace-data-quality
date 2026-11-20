@@ -153,11 +153,14 @@ CLEARTRACE_MASTER_KEY=<YOUR_GENERATED_64_CHAR_HEX_KEY>
 # Synthetic sample workflows; email verification remains enabled.
 CLEARTRACE_DEMO_MODE=true
 
-# Email one-time-code sign-in (Railway Hobby/Trial requires HTTPS email API)
+# Email one-time-code sign-in (Brevo preferred; Resend fallback)
 CLEARTRACE_AUTH_ENABLED=true
-CLEARTRACE_RESEND_API_KEY=<YOUR_RESEND_API_KEY>
-CLEARTRACE_EMAIL_FROM=<VERIFIED_SENDER_ADDRESS>
+BREVO_API_KEY=<YOUR_BREVO_API_KEY>
+BREVO_SENDER_EMAIL=<YOUR_VERIFIED_SENDER_ADDRESS>
 CLEARTRACE_OWNER_EMAIL=<OWNER_ALERT_AND_INITIAL_OWNER_EMAIL>
+# Optional fallback only when Brevo is not configured:
+# CLEARTRACE_RESEND_API_KEY=<YOUR_RESEND_API_KEY>
+# CLEARTRACE_EMAIL_FROM=<YOUR_RESEND_VERIFIED_SENDER>
 # Optional Google OIDC. Create a Web OAuth client in Google Cloud and register the callback below.
 CLEARTRACE_GOOGLE_CLIENT_ID=<YOUR_GOOGLE_OAUTH_CLIENT_ID>
 CLEARTRACE_GOOGLE_CLIENT_SECRET=<YOUR_GOOGLE_OAUTH_CLIENT_SECRET>
@@ -170,7 +173,7 @@ CLEARTRACE_MAX_UPLOAD_MB=15
 ```
 
 > [!IMPORTANT]
-> **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Resend API key in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. Railway Hobby/Trial blocks SMTP, so a Gmail app password alone cannot deliver OTPs. The public judge preview does not require email configuration.
+> **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Brevo API key in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. Railway Hobby/Trial blocks SMTP, so a Gmail app password alone cannot deliver OTPs. The public judge preview does not require email configuration.
 
 With an HTTPS email API configured, the owner receives sign-in notices and alerts after five failed code attempts. Google login appears only when both Google client variables are configured. In Google Cloud, add `https://cleartrace-web-production.up.railway.app/api/auth/google/callback` as an authorized redirect URI (replace the host if your public URL differs). Never place a provider key or client secret in Git or chat.
 
@@ -277,7 +280,7 @@ content-type: application/json
 |:--------|:---------------|:----------------------|
 | **502 Bad Gateway** | Application failed to bind to `$PORT` or died on startup | Check logs; verify `python3 server.py` binds to `0.0.0.0:$PORT`. |
 | **503 Service Unavailable** | Persistent volume not mounted | Confirm volume mount path is `/data` and service has volume attached. |
-| **Sign-in code not received** | HTTPS email API key/sender missing, invalid or unverified | Check `CLEARTRACE_RESEND_API_KEY` and `CLEARTRACE_EMAIL_FROM` in Railway Variables and verify the sender with the provider. The public judge preview remains available without mail setup. |
+| **Sign-in code not received** | HTTPS email API key/sender missing, invalid or unverified | Check `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` in Railway Variables and verify the sender with Brevo. If Brevo is absent, check `CLEARTRACE_RESEND_API_KEY` and `CLEARTRACE_EMAIL_FROM`. The public judge preview remains available without mail setup. |
 | **400 Bad Request on .xls** | Legacy Excel 97-2003 uploaded | Save file as modern `.xlsx` or `.csv` and re-upload. |
 | **429 Too Many Requests** | Rate limit exceeded (>180 requests/min per IP) | Wait 60 seconds. Rate limiter resets sliding window automatically. |
 | **SecurityStorageError: Refusing to regenerate key** | Master key missing while session files exist | Set `CLEARTRACE_MASTER_KEY` environment variable in Railway Dashboard. |

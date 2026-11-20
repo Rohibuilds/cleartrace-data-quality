@@ -167,22 +167,61 @@ def smtp_delivery_enabled() -> bool:
     return bool(username and password and sender)
 
 
+def email_delivery_provider() -> str | None:
+    """Select a fully configured HTTPS provider, then local SMTP.
+
+    Brevo is preferred when any Brevo setting is present; a partial Brevo
+    configuration fails closed instead of silently switching providers.
+    Resend remains the fallback when Brevo is not configured.
+    """
+    brevo_key = os.environ.get("BREVO_API_KEY", "").strip()
+    brevo_sender = os.environ.get("BREVO_SENDER_EMAIL", "").strip()
+    if brevo_key or brevo_sender:
+        return "brevo" if brevo_key and brevo_sender else None
+    resend_key = os.environ.get("CLEARTRACE_RESEND_API_KEY", "").strip()
+    resend_sender = os.environ.get("CLEARTRACE_EMAIL_FROM", "").strip()
+    if resend_key or resend_sender:
+        return "resend" if resend_key and resend_sender else None
+    if smtp_delivery_enabled():
+        return "smtp"
+    return None
+
+
 def email_delivery_enabled() -> bool:
-    """Check for an HTTPS email API (Railway-compatible) or local SMTP."""
-    resend_ready = bool(
-        os.environ.get("CLEARTRACE_RESEND_API_KEY", "").strip()
-        and os.environ.get("CLEARTRACE_EMAIL_FROM", "").strip()
-    )
-    return resend_ready or smtp_delivery_enabled()
+    """Check for a configured HTTPS email API or eligible local SMTP."""
+    return email_delivery_provider() is not None
 
 
 def _send_email(to: str, subject: str, body: str) -> None:
-    """Send through Resend HTTPS when configured, otherwise local SMTP."""
-    api_key = os.environ.get("CLEARTRACE_RESEND_API_KEY", "").strip()
-    if api_key:
-        sender = os.environ.get("CLEARTRACE_EMAIL_FROM", "").strip()
-        if not sender:
-            raise RuntimeError("CLEARTRACE_EMAIL_FROM is required with the email API provider.")
+    """Send via Brevo, configured Resend fallback, or eligible local SMTP."""
+    provider = email_delivery_provider()
+    if provider == "brevo":
+        api_key = os.environ["BREVO_API_KEY"].strip()
+        sender_email = os.environ["BREVO_SENDER_EMAIL"].strip()
+        payload = json.dumps({
+            "sender": {"name": "ClearTrace", "email": sender_email},
+            "to": [{"email": to}],
+            "subject": subject,
+            "textContent": body,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.brevo.com/v3/smtp/email", data=payload,
+            headers={"api-key": api_key, "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=12) as response:
+                if response.status not in (200, 201, 202):
+                    raise RuntimeError(f"Brevo rejected the message (HTTP {response.status}).")
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"Brevo rejected the message (HTTP {exc.code}).") from None
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise RuntimeError("Brevo email delivery is unavailable.") from None
+        return
+
+    if provider == "resend":
+        api_key = os.environ["CLEARTRACE_RESEND_API_KEY"].strip()
+        sender = os.environ["CLEARTRACE_EMAIL_FROM"].strip()
         payload = json.dumps({
             "from": sender,
             "to": [to],
@@ -204,22 +243,24 @@ def _send_email(to: str, subject: str, body: str) -> None:
             raise RuntimeError(f"Email provider rejected the message (HTTP {exc.code}).") from None
         return
 
-    if not smtp_delivery_enabled():
-        raise RuntimeError("No supported email delivery provider is configured.")
-    host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
-    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
-    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
-    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
-    message = EmailMessage()
-    message["Subject"], message["From"], message["To"] = subject, sender, to
-    message.set_content(body)
-    with smtplib.SMTP(host, port, timeout=12) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=ssl.create_default_context())
-        smtp.ehlo()
-        smtp.login(username, password)
-        smtp.send_message(message)
+    if provider == "smtp":
+        host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
+        port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
+        username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
+        password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
+        sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
+        message = EmailMessage()
+        message["Subject"], message["From"], message["To"] = subject, sender, to
+        message.set_content(body)
+        with smtplib.SMTP(host, port, timeout=12) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.ehlo()
+            smtp.login(username, password)
+            smtp.send_message(message)
+        return
+
+    raise RuntimeError("No supported email delivery provider is configured.")
 
 
 def _default_role(email: str) -> str:

@@ -44,7 +44,7 @@ from cleartrace.auth import (
     request_code, verify_code, get_user, logout as logout_auth_session,
     create_public_demo, get_public_demo, get_role, set_user_role,
     google_authorization_url, consume_oauth_state, exchange_google_code,
-    verify_google_id_token, create_google_session, smtp_delivery_enabled, email_delivery_enabled,
+    verify_google_id_token, create_google_session, smtp_delivery_enabled, email_delivery_enabled, email_delivery_provider,
     notify_owner_activity,
 )
 
@@ -513,7 +513,7 @@ def auth_status(request: Request) -> Dict[str, Any]:
         "google_sign_in_enabled": bool(os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID") and os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET")),
         "smtp_delivery_enabled": smtp_delivery_enabled(),
         "email_delivery_enabled": email_delivery_enabled(),
-        "email_delivery_provider": "resend" if os.environ.get("CLEARTRACE_RESEND_API_KEY") else ("smtp" if smtp_delivery_enabled() else None),
+        "email_delivery_provider": email_delivery_provider(),
         "owner_alerts_enabled": bool((os.environ.get("CLEARTRACE_OWNER_EMAIL") or os.environ.get("CLEARTRACE_SMTP_USERNAME")) and email_delivery_enabled()),
     }
 

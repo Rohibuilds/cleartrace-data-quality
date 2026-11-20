@@ -131,6 +131,145 @@ def test_failed_smtp_delivery_removes_unusable_code_and_allows_retry(monkeypatch
     assert second.status_code == 200
     assert sent["email"] == "retry@example.com"
 
+
+def _configure_mock_brevo(monkeypatch):
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("BREVO_API_KEY", "test-only-brevo-key")
+    monkeypatch.setenv("BREVO_SENDER_EMAIL", "cleartrace@example.test")
+    for name in ("CLEARTRACE_RESEND_API_KEY", "CLEARTRACE_EMAIL_FROM",
+                 "CLEARTRACE_SMTP_USERNAME", "CLEARTRACE_SMTP_PASSWORD", "CLEARTRACE_SMTP_FROM",
+                 "RAILWAY_PROJECT_ID", "RAILWAY_ENVIRONMENT"):
+        monkeypatch.delenv(name, raising=False)
+    client.cookies.clear()
+    return auth_module
+
+
+def test_brevo_otp_end_to_end_mock_transport_rate_limit_and_single_use(monkeypatch, caplog):
+    """Exercise app OTP request → Brevo HTTPS payload → verification without real sends."""
+    import json
+    import re
+    import cleartrace.auth as auth_module
+    auth_module = _configure_mock_brevo(monkeypatch)
+    captured = []
+
+    class Accepted:
+        status = 201
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+
+    def accept_brevo(request, timeout):
+        assert request.full_url == "https://api.brevo.com/v3/smtp/email"
+        assert request.get_method() == "POST"
+        assert request.get_header("Api-key") == "test-only-brevo-key"
+        assert timeout == 12
+        payload = json.loads(request.data.decode("utf-8"))
+        assert payload["sender"]["email"] == "cleartrace@example.test"
+        assert payload["to"] == [{"email": "judge@example.test"}]
+        captured.append(payload)
+        return Accepted()
+
+    monkeypatch.setattr(auth_module.urllib.request, "urlopen", accept_brevo)
+    requested = client.post("/api/auth/request-code", json={"email": "judge@example.test"})
+    assert requested.status_code == 200
+    assert "test-only-brevo-key" not in requested.text
+    code = re.search(r"is (\d{6})\.", captured[0]["textContent"]).group(1)
+    assert code not in requested.text
+    assert client.post("/api/auth/request-code", json={"email": "judge@example.test"}).status_code == 429
+    assert len(captured) == 1
+
+    verified = client.post("/api/auth/verify", json={"email": "judge@example.test", "code": code})
+    assert verified.status_code == 200
+    assert verified.json()["success"] is True
+    assert client.post("/api/auth/verify", json={"email": "judge@example.test", "code": code}).status_code == 401
+    assert "test-only-brevo-key" not in caplog.text
+    assert code not in caplog.text
+
+
+def test_brevo_otp_expiration_is_enforced(monkeypatch):
+    import json
+    import re
+    import cleartrace.auth as auth_module
+    auth_module = _configure_mock_brevo(monkeypatch)
+
+    class Accepted:
+        status = 201
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+
+    payloads = []
+    def accept_brevo(request, timeout):
+        payloads.append(json.loads(request.data.decode("utf-8")))
+        return Accepted()
+
+    monkeypatch.setattr(auth_module.urllib.request, "urlopen", accept_brevo)
+    response = client.post("/api/auth/request-code", json={"email": "expires@example.test"})
+    assert response.status_code == 200
+    code = re.search(r"is (\d{6})\.", payloads[0]["textContent"]).group(1)
+    real_time = auth_module.time.time
+    monkeypatch.setattr(auth_module.time, "time", lambda: real_time() + auth_module.OTP_TTL_SECONDS + 1)
+    expired = client.post("/api/auth/verify", json={"email": "expires@example.test", "code": code})
+    assert expired.status_code == 401
+    assert "expired" in expired.json()["detail"].lower()
+
+
+def test_brevo_unavailable_fails_closed_and_cleans_otp(monkeypatch, caplog):
+    import urllib.error
+    import cleartrace.auth as auth_module
+    auth_module = _configure_mock_brevo(monkeypatch)
+
+    def unavailable(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 503, "unavailable", {}, None)
+
+    monkeypatch.setattr(auth_module.urllib.request, "urlopen", unavailable)
+    result = client.post("/api/auth/request-code", json={"email": "offline@example.test"})
+    assert result.status_code == 503
+    assert "success" not in result.json()
+    assert "could not send" in result.json()["detail"].lower()
+    assert "test-only-brevo-key" not in result.text
+    assert "test-only-brevo-key" not in caplog.text
+    with auth_module._connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM otp_challenges").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM otp_requests").fetchone()[0] == 0
+
+
+def test_brevo_partial_configuration_fails_closed_and_resend_is_fallback(monkeypatch):
+    import cleartrace.auth as auth_module
+    _configure_mock_brevo(monkeypatch)
+    monkeypatch.setenv("CLEARTRACE_RESEND_API_KEY", "test-only-resend-key")
+    monkeypatch.setenv("CLEARTRACE_EMAIL_FROM", "resend@example.test")
+    assert auth_module.email_delivery_provider() == "brevo"
+
+    monkeypatch.delenv("BREVO_SENDER_EMAIL")
+    assert auth_module.email_delivery_provider() is None
+    assert auth_module.email_delivery_enabled() is False
+
+    monkeypatch.delenv("BREVO_API_KEY")
+    assert auth_module.email_delivery_provider() == "resend"
+
+
+def test_otp_email_and_ip_hourly_limits(monkeypatch):
+    import cleartrace.auth as auth_module
+    _configure_mock_brevo(monkeypatch)
+    sent = []
+    monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.append(email))
+    now = [1_800_000_000]
+    monkeypatch.setattr(auth_module.time, "time", lambda: now[0])
+
+    for _ in range(5):
+        auth_module.request_code("same@example.test", "198.51.100.4")
+        now[0] += 61
+    with pytest.raises(ValueError, match="wait"):
+        auth_module.request_code("same@example.test", "198.51.100.4")
+
+    for index in range(20):
+        auth_module.request_code(f"user{index}@example.test", "198.51.100.5")
+        now[0] += 61
+    with pytest.raises(ValueError, match="wait"):
+        auth_module.request_code("user20@example.test", "198.51.100.5")
+    assert len(sent) == 25
+
 def test_google_oidc_state_is_single_use_and_callback_sets_session(monkeypatch):
     import cleartrace.auth as auth_module
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
