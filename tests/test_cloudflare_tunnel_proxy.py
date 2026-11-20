@@ -49,7 +49,7 @@ def test_service_worker_and_manifest_cache_headers(client):
     sw_cc = sw_res.headers.get("cache-control", "").lower()
     assert "no-cache" in sw_cc
     assert "no-store" in sw_cc
-    assert "cleartrace-shell-v2.3.3" in sw_res.text
+    assert "cleartrace-shell-v2.3.4" in sw_res.text
 
     man_res = client.get("/manifest.json")
     assert man_res.status_code == 200

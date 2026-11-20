@@ -105,6 +105,32 @@ def test_otp_reports_unconfigured_mail_actionably(monkeypatch):
     assert "not configured" in response.json()["detail"].lower()
     assert "sample workspace" in response.json()["detail"].lower()
 
+
+def test_failed_smtp_delivery_removes_unusable_code_and_allows_retry(monkeypatch):
+    import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
+    monkeypatch.setenv("CLEARTRACE_AUTH_SECRET", "test-auth-secret-with-adequate-length")
+    monkeypatch.setenv("CLEARTRACE_SMTP_USERNAME", "cleartrace-test@example.test")
+    monkeypatch.setenv("CLEARTRACE_SMTP_PASSWORD", "mock-only-password")
+    monkeypatch.setenv("CLEARTRACE_SMTP_FROM", "cleartrace-test@example.test")
+    client.cookies.clear()
+
+    def unavailable(email, code):
+        raise OSError("SMTP unavailable")
+
+    monkeypatch.setattr(auth_module, "_send_otp", unavailable)
+    first = client.post("/api/auth/request-code", json={"email": "retry@example.com"})
+    assert first.status_code == 503
+    with auth_module._connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM otp_challenges").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM otp_requests").fetchone()[0] == 0
+
+    sent = {}
+    monkeypatch.setattr(auth_module, "_send_otp", lambda email, code: sent.update(email=email, code=code))
+    second = client.post("/api/auth/request-code", json={"email": "retry@example.com"})
+    assert second.status_code == 200
+    assert sent["email"] == "retry@example.com"
+
 def test_google_oidc_state_is_single_use_and_callback_sets_session(monkeypatch):
     import cleartrace.auth as auth_module
     monkeypatch.setenv("CLEARTRACE_AUTH_ENABLED", "true")
@@ -194,6 +220,8 @@ def test_owner_security_alerts_cover_login_and_repeated_bad_codes(monkeypatch):
 
 def test_owner_activity_notifications_are_best_effort(monkeypatch):
     import cleartrace.auth as auth_module
+    monkeypatch.setenv("CLEARTRACE_SMTP_USERNAME", "cleartrace-test@example.test")
+    monkeypatch.setenv("CLEARTRACE_SMTP_PASSWORD", "mock-only-password")
     captured = []
     monkeypatch.setattr(auth_module, "_send_security_alert", lambda *args: captured.append(args))
     auth_module.notify_owner_activity("analyst@example.com", "192.0.2.10", "analyst", "Dataset uploaded to workspace")

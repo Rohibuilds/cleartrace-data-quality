@@ -226,13 +226,14 @@ def _send_security_alert(email: str, fingerprint: str, role: str, event: str = "
     if not (username and password and sender):
         raise RuntimeError("SMTP is not configured for security alerts.")
     message = EmailMessage()
-    message["Subject"] = "ClearTrace account security activity"
+    message["Subject"] = "ClearTrace account and workspace activity"
     message["From"], message["To"] = sender, recipient
     message.set_content(
-        f"ClearTrace detected {event}.\n\n"
+        f"ClearTrace activity: {event}.\n\n"
         f"Account: {email}\nRole: {role}\nTime (UTC): {datetime.now(timezone.utc).isoformat()}\n"
         f"Network fingerprint: {fingerprint[:12]}\n\n"
-        "If this was not you, secure the account email and contact the ClearTrace owner."
+        "If you do not recognize this activity, review access to the account and workspace. "
+        "This notice contains no dataset contents or sign-in codes."
     )
     with smtplib.SMTP(host, port, timeout=15) as smtp:
         smtp.ehlo()
@@ -253,10 +254,11 @@ def _record_login_alert(email: str, ip: str) -> None:
         role = row["role"] if row else _default_role(email)
     finally:
         db.close()
-    try:
-        _send_security_alert(email, fingerprint, role)
-    except Exception:
-        logger.exception("Owner sign-in notification delivery failed")
+    if smtp_delivery_enabled():
+        try:
+            _send_security_alert(email, fingerprint, role)
+        except Exception:
+            logger.exception("Owner sign-in notification delivery failed")
 
 
 def notify_owner_activity(email: str, ip: str, role: str, event: str) -> None:
@@ -265,6 +267,8 @@ def notify_owner_activity(email: str, ip: str, role: str, event: str) -> None:
     Callers must pass a fixed event label, never user supplied text. Delivery is
     best-effort so an SMTP outage cannot interrupt the user's workspace action.
     """
+    if not smtp_delivery_enabled():
+        return
     try:
         fingerprint = _digest((ip or "unknown")[:128], b"ip:")
         _send_security_alert(email or "Workspace user", fingerprint, role or "unknown", event)
@@ -418,7 +422,7 @@ def request_code(email: str, ip: str) -> None:
         if (previous and now - previous["sent_at"] < OTP_COOLDOWN_SECONDS) or email_count >= 5 or ip_count >= 20:
             db.rollback()
             raise ValueError("Please wait before requesting another code.")
-        db.execute("INSERT INTO otp_requests(user_key,ip_hash,created_at) VALUES(?,?,?)", (user_key, ip_hash, now))
+        request_row = db.execute("INSERT INTO otp_requests(user_key,ip_hash,created_at) VALUES(?,?,?)", (user_key, ip_hash, now))
         if not _allowed(email):
             db.commit()
             return
@@ -435,6 +439,8 @@ def request_code(email: str, ip: str) -> None:
             _send_otp(email, code)
         except Exception:
             db.execute("DELETE FROM otp_challenges WHERE user_key=? AND sent_at=?", (user_key, now))
+            db.execute("DELETE FROM otp_requests WHERE rowid=?", (request_row.lastrowid,))
+            db.commit()
             logger.exception("OTP email delivery failed")
             raise RuntimeError("We could not send the sign-in email. Check the mail settings and try again.")
     finally:
@@ -466,7 +472,7 @@ def verify_code(email: str, code: str, ip: str = "unknown") -> tuple[str, str]:
             else:
                 db.execute("UPDATE otp_challenges SET attempts=? WHERE user_key=?", (attempts, user_key))
             db.commit()
-            if attempts >= OTP_MAX_ATTEMPTS:
+            if attempts >= OTP_MAX_ATTEMPTS and smtp_delivery_enabled():
                 try:
                     _send_security_alert(email, _digest(ip[:128], b"ip:"), _default_role(email), "repeated invalid sign-in code attempts")
                 except Exception:
