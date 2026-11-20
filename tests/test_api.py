@@ -57,6 +57,18 @@ def test_findings_and_proposals():
     assert "impact_simulation" in proposals[0]
 
 
+def test_rejected_proposal_stays_dismissed_after_refresh():
+    import server as server_module
+    client.post("/api/dataset/demo")
+    proposals = client.get("/api/repair/proposals").json()
+    finding_id = proposals[0]["finding_id"]
+    rejected = client.post("/api/repair/reject-notice", json={"finding_id": finding_id})
+    assert rejected.status_code == 200
+    session_id = client.cookies.get("ct_session_id")
+    server_module.SESSION_STORE.pop(session_id, None)
+    assert finding_id not in {p["finding_id"] for p in client.get("/api/repair/proposals").json()}
+
+
 def test_repair_apply_and_stale_rejection():
     # Reload demo
     client.post("/api/dataset/demo")

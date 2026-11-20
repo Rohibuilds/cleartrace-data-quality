@@ -224,6 +224,7 @@ def _serialize_session_state(sm: SessionManager) -> bytes:
             }
             for r in getattr(sm, "custom_math_rules", [])
         ],
+        "rejected_findings": sorted(getattr(sm, "rejected_findings", set())),
     }
     return json.dumps(state, ensure_ascii=False).encode("utf-8")
 
@@ -294,6 +295,7 @@ def _deserialize_session_state(data_bytes: bytes) -> SessionManager:
     sm.custom_math_rules = [
         MathRuleConfig(**r) for r in state.get("custom_math_rules", [])
     ]
+    sm.rejected_findings = set(state.get("rejected_findings", []))
 
     return sm
 

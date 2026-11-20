@@ -1011,7 +1011,7 @@ function renderRepairStudio() {
             <div style="border:1px solid var(--ct-navy-100);border-radius:12px;padding:22px;margin-bottom:18px;background:var(--ct-surface-card);box-shadow:var(--ct-shadow-xs);">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <div>
-                  <span style="font-weight:700;font-size:1.05rem;color:var(--ct-navy-950);">${p.kind} · Column '${p.column}'</span>
+                  <span style="font-weight:700;font-size:1.05rem;color:var(--ct-navy-950);">${escapeHtml(p.kind)} · Column '${escapeHtml(p.column)}'</span>
                   <span style="margin-left:8px;font-size:0.75rem;background:var(--ct-navy-100);padding:2px 8px;border-radius:4px;color:var(--ct-navy-700);font-weight:600;">Priority Score: ${p.priority_score}</span>
                 </div>
                 <span class="badge" style="background:${p.risk==='High'?'var(--ct-risk-high-bg)':'var(--ct-risk-low-bg)'};color:${p.risk==='High'?'var(--ct-risk-high-txt)':'var(--ct-risk-low-txt)'};padding:2px 8px;border-radius:999px;font-size:0.72rem;font-weight:700;">${p.risk} Risk</span>
@@ -1019,8 +1019,8 @@ function renderRepairStudio() {
 
               <!-- Pre-Mutation Impact Simulation -->
               <div style="background:var(--ct-surface-alt);border-left:3px solid var(--ct-teal-500);border-radius:4px;padding:10px 14px;margin:10px 0;font-size:0.8rem;">
-                <b>Impact Simulation:</b> ${p.impact_simulation.resolved_issue} · Data Loss Risk: <b>${p.impact_simulation.data_loss_risk}</b>.
-                <div style="color:var(--ct-navy-500);margin-top:2px;">Side-effects: ${p.impact_simulation.side_effects}</div>
+                <b>Impact Simulation:</b> ${escapeHtml(p.impact_simulation.resolved_issue)} · Data Loss Risk: <b>${escapeHtml(p.impact_simulation.data_loss_risk)}</b>.
+                <div style="color:var(--ct-navy-500);margin-top:2px;">Side-effects: ${escapeHtml(p.impact_simulation.side_effects)}</div>
               </div>
 
               <!-- Side-by-Side Diff Table -->

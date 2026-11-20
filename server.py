@@ -36,6 +36,7 @@ from cleartrace.persistence import (
     load_encrypted_session,
     delete_encrypted_session,
     get_storage_dir,
+    get_session_dir,
     AuthenticationError,
     SecurityStorageError,
 )
@@ -59,7 +60,7 @@ logger = logging.getLogger("cleartrace.server")
 
 app = FastAPI(
     title="ClearTrace API",
-    version="2.3.5",
+    version="2.3.6",
     description="Autonomous Data Quality and Traceable Repair Engine",
 )
 
@@ -148,6 +149,7 @@ _CSRF_PROTECTED_PATHS: set = {
     "/api/repair/apply",
     "/api/repair/batch-apply",
     "/api/repair/reject-notice",
+    "/api/math/validate",
     "/api/audit/undo",
     "/api/audit/reset",
     "/api/dataset/upload",
@@ -162,15 +164,17 @@ _PUBLIC_DEMO_MUTATION_PATHS: set = {
     "/api/dataset/demo", "/api/dataset/math-demo",
     "/api/repair/apply", "/api/repair/batch-apply",
     "/api/repair/reject-notice",
+    "/api/math/validate",
     "/api/audit/undo", "/api/audit/reset",
     "/api/timemachine/compare", "/api/timemachine/restore",
-    "/api/math/validate", "/api/math/rules",
+    "/api/math/rules",
     "/api/rag/search", "/api/rag/ask",
 }
 _ROLE_PROTECTED_MUTATIONS: set = {
     "/api/dataset/upload", "/api/dataset/demo", "/api/dataset/math-demo",
     "/api/repair/apply", "/api/repair/batch-apply", "/api/audit/undo",
     "/api/repair/reject-notice",
+    "/api/math/validate",
     "/api/audit/reset", "/api/timemachine/restore", "/api/math/rules",
 }
 
@@ -193,10 +197,6 @@ def is_trusted_origin(origin: str, host: str = "") -> bool:
         for extra in extra_origins.split(","):
             if extra.strip() and origin_clean == extra.strip().rstrip("/").lower():
                 return True
-    if host:
-        host_name = host.split(":")[0].lower()
-        if host_name and host_name in origin_clean:
-            return True
     return False
 
 
@@ -207,7 +207,8 @@ def persist_session(token: Optional[str] = None, sm: Optional[SessionManager] = 
         try:
             save_encrypted_session(tok, mgr)
         except Exception as exc:
-            logger.debug("Session persistence suppressed: %s", exc)
+            logger.exception("Session persistence failed for %s", tok[:8])
+            raise HTTPException(status_code=503, detail="Workspace changes could not be saved. Please retry after storage recovers.") from exc
 
 
 class SessionIsolationMiddleware(BaseHTTPMiddleware):
@@ -263,17 +264,21 @@ class SessionIsolationMiddleware(BaseHTTPMiddleware):
             try:
                 loaded = load_encrypted_session(token)
             except Exception as exc:
-                logger.debug("Session load suppressed for %s: %s", token[:8], exc)
-                loaded = None
+                logger.exception("Encrypted workspace load failed for %s", token[:8])
+                return JSONResponse(status_code=503, content={"detail": "Workspace storage could not be read. Your saved data was not replaced."})
             if loaded is not None:
                 SESSION_STORE[token] = loaded
             else:
+                if (get_session_dir() / f"{token}.enc").exists():
+                    return JSONResponse(status_code=503, content={"detail": "Saved workspace could not be restored. Contact the app owner; no replacement data was written."})
                 sm = SessionManager(load_demo_dataset(), filename="synthetic_quality_issues.csv")
                 SESSION_STORE[token] = sm
                 try:
                     save_encrypted_session(token, sm)
                 except Exception as exc:
-                    logger.debug("Initial session save suppressed for %s: %s", token[:8], exc)
+                    SESSION_STORE.pop(token, None)
+                    logger.exception("Initial workspace save failed for %s", token[:8])
+                    return JSONResponse(status_code=503, content={"detail": "Workspace storage is unavailable. Please retry shortly."})
 
         ctx_token = current_session_token.set(token)
         try:
@@ -469,7 +474,7 @@ def health_probe() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.5",
+        "version": "2.3.6",
         "storage": "ready" if storage_ready else "unmounted",
         "llm": "direct-evidence",
     }
@@ -484,7 +489,7 @@ def health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "ClearTrace Data Quality Engine",
-        "version": "2.3.5",
+        "version": "2.3.6",
         "session_active": has_session,
         "dataset_loaded": sm.filename if sm else None,
         "dataset_revision": sm.dataset_revision if sm else 0,
@@ -892,6 +897,8 @@ def get_proposals() -> List[Dict[str, Any]]:
     results = []
     # 1. Standard scan proposals
     for finding, priority_score, priority_reason in ranked:
+        if finding.id in getattr(sm, "rejected_findings", set()):
+            continue
         prop = generate_proposal(finding, sm.working_df)
         sim = simulate_impact(sm.working_df, finding)
         results.append({
@@ -928,6 +935,8 @@ def get_proposals() -> List[Dict[str, Any]]:
     math_findings = sm.get_math_findings()
     math_pairs = convert_math_findings_to_proposals(math_findings, sm.working_df)
     for m_finding, m_prop in math_pairs:
+        if m_finding.id in getattr(sm, "rejected_findings", set()):
+            continue
         results.append({
             "proposal_id": m_prop.proposal_id,
             "finding_id": m_finding.id,
@@ -1008,9 +1017,17 @@ def apply_repair_proposal(req: ApplyRequest, request: Request) -> Dict[str, Any]
 
 @app.post("/api/repair/reject-notice")
 def reject_repair_notice(req: RejectRepairRequest, request: Request) -> Dict[str, Any]:
-    """Record owner-visible notice when a user rejects a proposed repair."""
+    """Persist a user's rejection so it remains dismissed across refreshes."""
     if not req.finding_id or len(req.finding_id) > 200:
         raise HTTPException(status_code=400, detail="Invalid repair identifier.")
+    sm = get_session()
+    findings, _ = scan_dataset(sm.working_df)
+    valid_ids = {finding.id for finding in findings}
+    valid_ids.update(f.id for f in sm.get_math_findings())
+    if req.finding_id not in valid_ids:
+        raise HTTPException(status_code=404, detail="That finding is no longer available.")
+    sm.rejected_findings.add(req.finding_id)
+    persist_session(current_session_token.get(), sm)
     notify_owner_for_request(request, "Repair proposal rejected")
     return {"success": True}
 

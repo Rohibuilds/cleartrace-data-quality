@@ -38,6 +38,7 @@ class SessionManager:
         self.time_machine = TimeMachine(self.working_df, initial_description=f"Loaded {filename}")
         self.math_findings: List[MathFinding] = []
         self.custom_math_rules: List[MathRuleConfig] = []
+        self.rejected_findings: set[str] = set()
         self._evidence_index: Optional[EvidenceIndex] = None
 
         # Record initial ingestion event
