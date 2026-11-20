@@ -14,6 +14,8 @@ import ssl
 import time
 import json
 import urllib.parse
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
@@ -154,11 +156,70 @@ def _owner_email() -> str:
 
 
 def smtp_delivery_enabled() -> bool:
-    """Return whether all required outbound email settings are present."""
+    """Whether SMTP is configured and allowed on this Railway plan."""
+    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_PROJECT_ID"):
+        # Railway disables SMTP egress on Hobby/Trial. Fail fast and direct the
+        # deployment to the HTTPS provider path instead of timing out at login.
+        return False
     username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
     password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").strip()
     sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
     return bool(username and password and sender)
+
+
+def email_delivery_enabled() -> bool:
+    """Check for an HTTPS email API (Railway-compatible) or local SMTP."""
+    resend_ready = bool(
+        os.environ.get("CLEARTRACE_RESEND_API_KEY", "").strip()
+        and os.environ.get("CLEARTRACE_EMAIL_FROM", "").strip()
+    )
+    return resend_ready or smtp_delivery_enabled()
+
+
+def _send_email(to: str, subject: str, body: str) -> None:
+    """Send through Resend HTTPS when configured, otherwise local SMTP."""
+    api_key = os.environ.get("CLEARTRACE_RESEND_API_KEY", "").strip()
+    if api_key:
+        sender = os.environ.get("CLEARTRACE_EMAIL_FROM", "").strip()
+        if not sender:
+            raise RuntimeError("CLEARTRACE_EMAIL_FROM is required with the email API provider.")
+        payload = json.dumps({
+            "from": sender,
+            "to": [to],
+            "subject": subject,
+            "text": body,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails", data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=12) as response:
+                if response.status not in (200, 201, 202):
+                    raise RuntimeError(f"Email provider returned HTTP {response.status}.")
+        except urllib.error.HTTPError as exc:
+            # Never expose provider response bodies, which may contain addresses
+            # or account metadata, to the browser or logs.
+            raise RuntimeError(f"Email provider rejected the message (HTTP {exc.code}).") from None
+        return
+
+    if not smtp_delivery_enabled():
+        raise RuntimeError("No supported email delivery provider is configured.")
+    host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
+    port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
+    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
+    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
+    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
+    message = EmailMessage()
+    message["Subject"], message["From"], message["To"] = subject, sender, to
+    message.set_content(body)
+    with smtplib.SMTP(host, port, timeout=12) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.ehlo()
+        smtp.login(username, password)
+        smtp.send_message(message)
 
 
 def _default_role(email: str) -> str:
@@ -218,29 +279,13 @@ def _send_security_alert(email: str, fingerprint: str, role: str, event: str = "
     recipient = _owner_email()
     if not recipient:
         return
-    host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
-    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
-    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
-    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
-    if not (username and password and sender):
-        raise RuntimeError("SMTP is not configured for security alerts.")
-    message = EmailMessage()
-    message["Subject"] = "ClearTrace account and workspace activity"
-    message["From"], message["To"] = sender, recipient
-    message.set_content(
+    _send_email(recipient, "ClearTrace account and workspace activity",
         f"ClearTrace activity: {event}.\n\n"
         f"Account: {email}\nRole: {role}\nTime (UTC): {datetime.now(timezone.utc).isoformat()}\n"
         f"Network fingerprint: {fingerprint[:12]}\n\n"
         "If you do not recognize this activity, review access to the account and workspace. "
         "This notice contains no dataset contents or sign-in codes."
     )
-    with smtplib.SMTP(host, port, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=ssl.create_default_context())
-        smtp.ehlo()
-        smtp.login(username, password)
-        smtp.send_message(message)
 
 
 def _record_login_alert(email: str, ip: str) -> None:
@@ -254,7 +299,7 @@ def _record_login_alert(email: str, ip: str) -> None:
         role = row["role"] if row else _default_role(email)
     finally:
         db.close()
-    if smtp_delivery_enabled():
+    if email_delivery_enabled():
         try:
             _send_security_alert(email, fingerprint, role)
         except Exception:
@@ -267,7 +312,7 @@ def notify_owner_activity(email: str, ip: str, role: str, event: str) -> None:
     Callers must pass a fixed event label, never user supplied text. Delivery is
     best-effort so an SMTP outage cannot interrupt the user's workspace action.
     """
-    if not smtp_delivery_enabled():
+    if not email_delivery_enabled():
         return
     try:
         fingerprint = _digest((ip or "unknown")[:128], b"ip:")
@@ -376,29 +421,11 @@ def create_google_session(email: str) -> tuple[str, str]:
 
 
 def _send_otp(email: str, code: str) -> None:
-    host = os.environ.get("CLEARTRACE_SMTP_HOST", "smtp.gmail.com")
-    port = int(os.environ.get("CLEARTRACE_SMTP_PORT", "587"))
-    username = os.environ.get("CLEARTRACE_SMTP_USERNAME", "").strip()
-    password = os.environ.get("CLEARTRACE_SMTP_PASSWORD", "").replace(" ", "").strip()
-    sender = os.environ.get("CLEARTRACE_SMTP_FROM", "").strip() or username
-    if not (username and password and sender):
-        raise RuntimeError("Email sign-in is not configured. Set the Gmail SMTP variables in Railway.")
-    message = EmailMessage()
-    message["Subject"] = "Your ClearTrace sign-in code"
-    message["From"] = sender
-    message["To"] = email
-    message.set_content(
+    _send_email(email, "Your ClearTrace sign-in code",
         f"Your ClearTrace sign-in code is {code}.\n\n"
         "It expires in 10 minutes and can be used once. If you did not request this code, "
         "you can ignore this message. ClearTrace support will never ask you to share it."
     )
-    context = ssl.create_default_context()
-    with smtplib.SMTP(host, port, timeout=15) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=context)
-        smtp.ehlo()
-        smtp.login(username, password)
-        smtp.send_message(message)
 
 
 def request_code(email: str, ip: str) -> None:
@@ -472,7 +499,7 @@ def verify_code(email: str, code: str, ip: str = "unknown") -> tuple[str, str]:
             else:
                 db.execute("UPDATE otp_challenges SET attempts=? WHERE user_key=?", (attempts, user_key))
             db.commit()
-            if attempts >= OTP_MAX_ATTEMPTS and smtp_delivery_enabled():
+            if attempts >= OTP_MAX_ATTEMPTS and email_delivery_enabled():
                 try:
                     _send_security_alert(email, _digest(ip[:128], b"ip:"), _default_role(email), "repeated invalid sign-in code attempts")
                 except Exception:

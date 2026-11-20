@@ -44,7 +44,7 @@ from cleartrace.auth import (
     request_code, verify_code, get_user, logout as logout_auth_session,
     create_public_demo, get_public_demo, get_role, set_user_role,
     google_authorization_url, consume_oauth_state, exchange_google_code,
-    verify_google_id_token, create_google_session, smtp_delivery_enabled,
+    verify_google_id_token, create_google_session, smtp_delivery_enabled, email_delivery_enabled,
     notify_owner_activity,
 )
 
@@ -512,14 +512,16 @@ def auth_status(request: Request) -> Dict[str, Any]:
         "role": user["role"] if user else None,
         "google_sign_in_enabled": bool(os.environ.get("CLEARTRACE_GOOGLE_CLIENT_ID") and os.environ.get("CLEARTRACE_GOOGLE_CLIENT_SECRET")),
         "smtp_delivery_enabled": smtp_delivery_enabled(),
-        "owner_alerts_enabled": bool((os.environ.get("CLEARTRACE_OWNER_EMAIL") or os.environ.get("CLEARTRACE_SMTP_USERNAME")) and os.environ.get("CLEARTRACE_SMTP_USERNAME") and os.environ.get("CLEARTRACE_SMTP_PASSWORD")),
+        "email_delivery_enabled": email_delivery_enabled(),
+        "email_delivery_provider": "resend" if os.environ.get("CLEARTRACE_RESEND_API_KEY") else ("smtp" if smtp_delivery_enabled() else None),
+        "owner_alerts_enabled": bool((os.environ.get("CLEARTRACE_OWNER_EMAIL") or os.environ.get("CLEARTRACE_SMTP_USERNAME")) and email_delivery_enabled()),
     }
 
 
 @app.post("/api/auth/request-code")
 def auth_request_code(payload: EmailCodeRequest, request: Request) -> Dict[str, Any]:
     """Email a short-lived, single-use sign-in code."""
-    if not smtp_delivery_enabled():
+    if not email_delivery_enabled():
         raise HTTPException(
             status_code=503,
             detail="Email sign-in is not configured on this deployment yet. Use the sample workspace or contact the app owner.",

@@ -153,13 +153,10 @@ CLEARTRACE_MASTER_KEY=<YOUR_GENERATED_64_CHAR_HEX_KEY>
 # Synthetic sample workflows; email verification remains enabled.
 CLEARTRACE_DEMO_MODE=true
 
-# Email one-time-code sign-in (Google app password, not your Gmail account password)
+# Email one-time-code sign-in (Railway Hobby/Trial requires HTTPS email API)
 CLEARTRACE_AUTH_ENABLED=true
-CLEARTRACE_SMTP_HOST=smtp.gmail.com
-CLEARTRACE_SMTP_PORT=587
-CLEARTRACE_SMTP_USERNAME=<YOUR_GMAIL_ADDRESS>
-CLEARTRACE_SMTP_PASSWORD=<YOUR_GMAIL_APP_PASSWORD>
-CLEARTRACE_SMTP_FROM=<YOUR_GMAIL_ADDRESS>
+CLEARTRACE_RESEND_API_KEY=<YOUR_RESEND_API_KEY>
+CLEARTRACE_EMAIL_FROM=<VERIFIED_SENDER_ADDRESS>
 CLEARTRACE_OWNER_EMAIL=<OWNER_ALERT_AND_INITIAL_OWNER_EMAIL>
 # Optional Google OIDC. Create a Web OAuth client in Google Cloud and register the callback below.
 CLEARTRACE_GOOGLE_CLIENT_ID=<YOUR_GOOGLE_OAUTH_CLIENT_ID>
@@ -173,9 +170,9 @@ CLEARTRACE_MAX_UPLOAD_MB=15
 ```
 
 > [!IMPORTANT]
-> **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Gmail app password in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. The public judge preview does not require email configuration.
+> **Action Required:** Keep `CLEARTRACE_MASTER_KEY` and the Resend API key in Railway Variables. Attach the persistent `/data` volume before using OTP login so user workspaces and OTP session records survive deployments. Railway Hobby/Trial blocks SMTP, so a Gmail app password alone cannot deliver OTPs. The public judge preview does not require email configuration.
 
-With SMTP configured, the owner receives sign-in notices and alerts after five failed code attempts. Google login appears only when both Google client variables are configured. In Google Cloud, add `https://cleartrace-web-production.up.railway.app/api/auth/google/callback` as an authorized redirect URI (replace the host if your public URL differs). Never place the client secret or app password in Git or chat.
+With an HTTPS email API configured, the owner receives sign-in notices and alerts after five failed code attempts. Google login appears only when both Google client variables are configured. In Google Cloud, add `https://cleartrace-web-production.up.railway.app/api/auth/google/callback` as an authorized redirect URI (replace the host if your public URL differs). Never place a provider key or client secret in Git or chat.
 
 The owner can assign `viewer`, `analyst`, or `admin` roles in Settings to an account that has signed in at least once. Assignment adds the account to the owner's shared organization workspace. A viewer is read-only for dataset uploads, repairs, reset/restore, and math rule edits. **Organization members can access the shared workspace's data according to their role.** “Remove access” returns the member to their previous private workspace. This release supports one owner-managed organization per deployment; it does not include SAML, SCIM, or multi-organization policies.
 
@@ -280,7 +277,7 @@ content-type: application/json
 |:--------|:---------------|:----------------------|
 | **502 Bad Gateway** | Application failed to bind to `$PORT` or died on startup | Check logs; verify `python3 server.py` binds to `0.0.0.0:$PORT`. |
 | **503 Service Unavailable** | Persistent volume not mounted | Confirm volume mount path is `/data` and service has volume attached. |
-| **Sign-in code not received** | Gmail SMTP variables missing or invalid | Check Railway Variables, use a Gmail app password, then redeploy. The public judge preview remains available without mail setup. |
+| **Sign-in code not received** | HTTPS email API key/sender missing, invalid or unverified | Check `CLEARTRACE_RESEND_API_KEY` and `CLEARTRACE_EMAIL_FROM` in Railway Variables and verify the sender with the provider. The public judge preview remains available without mail setup. |
 | **400 Bad Request on .xls** | Legacy Excel 97-2003 uploaded | Save file as modern `.xlsx` or `.csv` and re-upload. |
 | **429 Too Many Requests** | Rate limit exceeded (>180 requests/min per IP) | Wait 60 seconds. Rate limiter resets sliding window automatically. |
 | **SecurityStorageError: Refusing to regenerate key** | Master key missing while session files exist | Set `CLEARTRACE_MASTER_KEY` environment variable in Railway Dashboard. |

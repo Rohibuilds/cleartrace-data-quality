@@ -32,7 +32,7 @@ The product is designed to keep data repair visible and deliberate: findings are
 
 ## Try the deployed demo
 
-Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. Personal email OTP requires a configured SMTP sender and app password. The email field remains editable, but the send button stays unavailable until `CLEARTRACE_SMTP_PASSWORD` is added in Railway and a real delivery test succeeds. File uploads are limited to verified email workspaces.
+Open [cleartrace-web-production.up.railway.app](https://cleartrace-web-production.up.railway.app/). Judges can choose **Explore sample workspace** to inspect and repair synthetic data without signing in. On Railway Hobby/Trial, outbound SMTP is blocked, so OTP delivery must use an HTTPS email API. ClearTrace supports Resend through `CLEARTRACE_RESEND_API_KEY` and a verified `CLEARTRACE_EMAIL_FROM` sender. File uploads are limited to verified email workspaces.
 
 Use synthetic or non-sensitive data for the public demo. The current deployment is a controlled demonstration, not a multi-tenant commercial service.
 
@@ -48,15 +48,17 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Configure Gmail SMTP for email sign-in, then start the FastAPI/PWA app. Use a Gmail app password stored only in your shell or secret manager:
+For Railway and other hosts that restrict SMTP, configure Resend (or use local Gmail SMTP for development). Store credentials only in a secret manager:
 
 ```bash
-export CLEARTRACE_SMTP_USERNAME="your-sender@gmail.com"
-export CLEARTRACE_SMTP_PASSWORD="your-16-character-app-password"
-export CLEARTRACE_SMTP_FROM="$CLEARTRACE_SMTP_USERNAME"
+export CLEARTRACE_RESEND_API_KEY="re_..."
+export CLEARTRACE_EMAIL_FROM="ClearTrace <verified-sender@your-domain.example>"
+export CLEARTRACE_OWNER_EMAIL="owner@example.com"
 export CLEARTRACE_AUTH_ENABLED=true
 python run.py
 ```
+
+For local development only, `CLEARTRACE_SMTP_USERNAME`, `CLEARTRACE_SMTP_PASSWORD`, and `CLEARTRACE_SMTP_FROM` can be used when outbound SMTP is available. A Gmail app password does not bypass Railway's SMTP network restriction.
 
 Open `http://127.0.0.1:8000`. To start the companion Streamlit studio instead:
 
@@ -87,9 +89,9 @@ The cached offline shell can launch the interface, but sign-in, uploads, and API
 
 ## Security and known limits
 
-If an SMTP send fails, ClearTrace removes that undelivered code and its request count so the account can retry when mail service returns. The owner alert address is configured privately in Railway Variables; real OTP and alert delivery still requires the Gmail app password there.
+If an email send fails, ClearTrace removes that undelivered code and its request count so the account can retry when mail service returns. The owner alert address is configured privately as `CLEARTRACE_OWNER_EMAIL`.
 
-ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. With Gmail SMTP configured, the owner at `CLEARTRACE_OWNER_EMAIL` receives content-free notices for code requests, successful sign-ins, repeated invalid codes, sign-outs, uploads, sample loads, repair approvals/rejections, undo/reset/restore, rule changes, exports, and role changes. Notices contain the account/role, UTC time, and a truncated keyed network fingerprint; they never include dataset rows or uploaded contents. Delivery is best-effort: SMTP credentials and a live test are required, and failed mail does not undo workspace changes. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
+ClearTrace uses short-lived, single-use email codes for sign-in. Owner-managed roles share a deployment organization workspace and limit viewer mutations. The owner at `CLEARTRACE_OWNER_EMAIL` receives content-free notices for sign-ins and workspace activity when an email provider is configured. Notices contain no dataset rows or uploaded contents. Delivery is best-effort; failed mail does not undo workspace changes. Google OIDC is optional and requires a configured OAuth client. This release does not include SAML, SCIM, multi-organization tenancy, or organization policy administration. Encrypted persistence does not replace key management, retention policies, backups, or monitoring.
 
 Before handling confidential or regulated data, a production operator should add managed identity, per-user authorization and isolation, rate limiting, bounded shared session storage, backup and retention policies, and independent security review. Read [SECURITY.md](SECURITY.md) and the deployment checklist before exposing a new instance.
 

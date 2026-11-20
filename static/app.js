@@ -215,7 +215,7 @@ function showClearTraceLogin() {
     .then(response => response.json())
     .then(status => {
       googleButton.hidden = !status.google_sign_in_enabled;
-      if (status.smtp_delivery_enabled) {
+      if (status.email_delivery_enabled || status.smtp_delivery_enabled) {
         mailStatus.textContent = 'Email verification is available. Sign-in codes expire after 10 minutes.';
         mailStatus.style.background = '#17352f';
         mailStatus.style.color = '#b7e6d2';
@@ -224,7 +224,7 @@ function showClearTraceLogin() {
         button.textContent = 'Email me a sign-in code';
       } else {
         const googleNote = status.google_sign_in_enabled ? ' You can also continue with Google.' : '';
-        mailStatus.textContent = 'Gmail delivery is not configured for this deployment, so a code cannot be sent yet. You can enter your email, but no code will arrive until the app owner finishes mail setup. You can still explore the synthetic sample without signing in.' + googleNote;
+        mailStatus.textContent = 'Email delivery is not configured for this deployment, so a code cannot be sent yet. You can enter your email, but no code will arrive until the app owner configures an HTTPS email provider. You can still explore the synthetic sample without signing in.' + googleNote;
         mailStatus.style.background = '#3a2c1a';
         mailStatus.style.color = '#f2d6a5';
         button.disabled = true;
